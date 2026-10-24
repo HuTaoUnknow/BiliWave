@@ -1,0 +1,22 @@
+{
+  "left_aligned_sections": [
+    "lyrics",
+    "resources"
+  ],
+  "settings_content_max_width_logical_pixels": 820,
+  "date": "2026-10-23",
+  "release_sha256": "67B302A4FAB80E349E075CCA0CCDD568FE1D4F8778A2AB094AAF96FF4DB28221",
+  "tested_build_sha256": "67B302A4FAB80E349E075CCA0CCDD568FE1D4F8778A2AB094AAF96FF4DB28221",
+  "debug_sha256": "4282A3B47F09AD640759932C0AB81EF52946C4C46E20439B613846D6FB31E515",
+  "startup": [
+    {
+      "exit_code": 0,
+      "flavor": "release"
+    },
+    {
+      "exit_code": 0,
+      "flavor": "build-debug"
+    }
+  ],
+  "existing_test_cases_passed": 2
+}

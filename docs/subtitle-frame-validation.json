@@ -1,0 +1,34 @@
+{
+  "workflow_skip": "opt-in online lookup",
+  "release_sha256": "649FDE995B26C87333B6D0C4D82B6820AFCCF633E68A8963C0D0EA5DA0BD5D77",
+  "result_frame_height_logical_pixels": 52,
+  "startup": [
+    {
+      "exit_code": 0,
+      "flavor": "release"
+    },
+    {
+      "exit_code": 0,
+      "flavor": "build-debug"
+    }
+  ],
+  "single_frame_release": {
+    "scope": "current_frame",
+    "sampled_frames": 1,
+    "ocr_calls": 1,
+    "provider": "DmlExecutionProvider",
+    "bilingual_rows": 2
+  },
+  "workflow_cases_skipped": 1,
+  "workflow_cases_passed": 16,
+  "python_tests_passed": 22,
+  "deployed_workers_sha256": {
+    "lyric_worker.py": "458DA7539A60161898FA029B57ED2295F9F530CF3FE94AB8B97A943B207D3BED",
+    "ocr_spacing.py": "9F98C44590D4609866D79F9AFD9B145CC0FF8FC82C8AE0753ECF6531D82CDE6E",
+    "ocr_backend.py": "26CB6A9593A05FDBB462BADDC90530EEFDA54EED786E8BD642F1381FC03E7268"
+  },
+  "debug_sha256": "A08A9B4E82F670310C760BD640A6D1E412C870BC7CAEB44C08CCB79051C44D54",
+  "redesign_cases_passed": 15,
+  "tested_build_sha256": "649FDE995B26C87333B6D0C4D82B6820AFCCF633E68A8963C0D0EA5DA0BD5D77",
+  "date": "2026-10-23"
+}

@@ -1,0 +1,85 @@
+{
+  "original_icon_pixels_preserved": true,
+  "desktop_debug_shortcut_icon_updated": true,
+  "standalone_smoke": [
+    {
+      "flavor": "release",
+      "exit_code": 0
+    },
+    {
+      "flavor": "build-debug",
+      "exit_code": 0
+    },
+    {
+      "flavor": "release-lite",
+      "exit_code": 0
+    }
+  ],
+  "tested_lite_build_sha256": "EDC73106D7B93F393BF8E734FC7A75DF9169B08DD306D7AE61DA8848F617848E",
+  "startup_registration_test_backend": "temporary INI; actual Windows Run entries not modified",
+  "date": "2026-10-23",
+  "close_to_tray_default": true,
+  "tested_build_sha256": "7ACD81C81D93A4B6F3BAD5BE29CEFC94549E5E71232FA8B411F71BAC7C9CC5FF",
+  "icon_png_sha256": "0F1781E8D757F34B62990539752826B7008EEE2AD9B9121F9DF694EF8441837D",
+  "lite_release_sha256": "EDC73106D7B93F393BF8E734FC7A75DF9169B08DD306D7AE61DA8848F617848E",
+  "debug_sha256": "07772976DB08ED40A16E28F13C5B1BBF05F8D6C471C3E46BAEF52BDDEED3BFCC",
+  "actual_executable_launch_tests": [
+    {
+      "executable": "D:\\PC\\Project\\Qt\\bilibili_mp3\\release\\BiliWave.exe",
+      "startup_remained_running": true,
+      "duplicate_launches": [
+        {
+          "arguments": [
+            "--startup"
+          ],
+          "exit_code": 0
+        },
+        {
+          "arguments": [],
+          "exit_code": 0
+        }
+      ],
+      "data_scope": "temporary fixture only"
+    },
+    {
+      "executable": "D:\\PC\\Project\\Qt\\bilibili_mp3\\build-debug\\BiliWave.exe",
+      "startup_remained_running": true,
+      "duplicate_launches": [
+        {
+          "arguments": [
+            "--startup"
+          ],
+          "exit_code": 0
+        },
+        {
+          "arguments": [],
+          "exit_code": 0
+        }
+      ],
+      "data_scope": "temporary fixture only"
+    },
+    {
+      "executable": "D:\\PC\\Project\\Qt\\bilibili_mp3\\release-lite\\BiliWave.exe",
+      "startup_remained_running": true,
+      "duplicate_launches": [
+        {
+          "arguments": [
+            "--startup"
+          ],
+          "exit_code": 0
+        },
+        {
+          "arguments": [],
+          "exit_code": 0
+        }
+      ],
+      "data_scope": "temporary fixture only"
+    }
+  ],
+  "icon_ico_sha256": "27BD4EB360761A773134ED6B5BD38819656225ED7808A2142D7785F69DE516D0",
+  "icon_embedded_in_executables": true,
+  "redesign_cases_passed": 18,
+  "auto_start_not_automatically_enabled": true,
+  "lite_cases_passed": 1,
+  "release_sha256": "7ACD81C81D93A4B6F3BAD5BE29CEFC94549E5E71232FA8B411F71BAC7C9CC5FF"
+}

@@ -1,0 +1,17 @@
+{
+  "version": "1.10.0",
+  "edition": "Lite",
+  "installer": "D:\\PC\\Project\\Qt\\bilibili_mp3\\dist\\BiliWave-Lite-1.10.0-Windows-x64-Setup.exe",
+  "installer_bytes": 105520199,
+  "installed_bytes": 324866785.0,
+  "sha256": "1988b3cec74ad1dd62d2243f6842ee416f4f26d9b4f7f2997d33f1d2293c93a6",
+  "installed": true,
+  "application_startup": true,
+  "system_only_path": true,
+  "lyric_payload_absent": true,
+  "direct_library_import": true,
+  "decoded": true,
+  "seeked": true,
+  "uninstall": true,
+  "user_data_preserved": true
+}

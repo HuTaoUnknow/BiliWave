@@ -1,0 +1,25 @@
+{
+  "publisher": "RapidAI / PaddleOCR",
+  "manifest": "https://github.com/RapidAI/RapidOCR/blob/main/python/rapidocr/default_models.yaml",
+  "release": "v3.10.0",
+  "models": [
+    {
+      "language": "ru",
+      "file": "models/ocr/cyrillic_PP-OCRv5_rec_mobile.onnx",
+      "bytes": 8074092,
+      "sha256": "90f761b4bfcce0c8c561c0cb5c887b0971d3ec01c32164bdf7374a35b0982711",
+      "character_count": 850,
+      "required_alphabet_complete": true,
+      "url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/cyrillic_PP-OCRv5_rec_mobile.onnx"
+    },
+    {
+      "language": "it",
+      "file": "models/ocr/latin_PP-OCRv5_rec_mobile.onnx",
+      "bytes": 7904513,
+      "sha256": "b20bd37c168a570f583afbc8cd7925603890efbcdc000a59e22c269d160b5f5a",
+      "character_count": 502,
+      "required_alphabet_complete": true,
+      "url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile.onnx"
+    }
+  ]
+}

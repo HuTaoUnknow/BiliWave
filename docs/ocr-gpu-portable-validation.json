@@ -1,0 +1,64 @@
+{
+  "text": "听见微光\n落在窗前",
+  "events": [
+    {
+      "start": 0.0,
+      "end": 2.0,
+      "text": "听见微光",
+      "confidence": 0.9414538443088531,
+      "representative_time": 1.0,
+      "merged_segments": 1
+    },
+    {
+      "start": 3.0,
+      "end": 5.0,
+      "text": "落在窗前",
+      "confidence": 0.9997945427894592,
+      "representative_time": 4.0,
+      "merged_segments": 1
+    }
+  ],
+  "lrc": "[00:00.00]听见微光\n[00:02.00]\n[00:03.00]落在窗前\n[00:05.00]",
+  "interval": 0.5,
+  "stats": {
+    "sampled_frames": 12,
+    "visual_segments": 4,
+    "ocr_calls": 2,
+    "output_lines": 2,
+    "init_seconds": 1.161,
+    "ocr_seconds": 2.229,
+    "elapsed_seconds": 3.672
+  },
+  "backend": {
+    "provider": "DmlExecutionProvider",
+    "adapter": {
+      "id": 0,
+      "name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+      "vendor": 4318,
+      "memory_bytes": 6285164544
+    },
+    "runtime_version": "1.24.4",
+    "sessions": [
+      [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider"
+      ]
+    ],
+    "label": "GPU · NVIDIA GeForce RTX 3060 Laptop GPU"
+  },
+  "change_threshold": 0.22,
+  "text_similarity": 0.94,
+  "warnings": [
+    "按画面变化分段并取中间帧；时间精度受 0.5 秒采样影响。请使用同源视频并试听。"
+  ],
+  "source": "视频字幕 OCR · 中间帧识别与相似句合并",
+  "ok": true
+}

@@ -1,0 +1,31 @@
+{
+  "startup": [
+    {
+      "exit_code": 0,
+      "flavor": "release"
+    },
+    {
+      "exit_code": 0,
+      "flavor": "build-debug"
+    }
+  ],
+  "integration_cases_passed": 4,
+  "verified": [
+    "download task cards and three vector icons",
+    "direct collection removes row without navigation",
+    "individual cancellation does not cancel other tasks",
+    "subtitle preview and parameter row layout",
+    "delete-related-files confirmation cancellation",
+    "deletion releases active media and cancels lyric tasks",
+    "original audio, sidecars and UUID-generated family cleanup",
+    "playlist and playback queue cleanup",
+    "unrelated and shared file preservation"
+  ],
+  "date": "2026-10-23",
+  "file_deletion_test_scope": "isolated temporary fixture files only",
+  "lite_cases_passed": 1,
+  "redesign_cases_passed": 15,
+  "release_sha256": "76EE5CF5A9FEFC1F14B6FED008FBB63B42DBE24D61F3A132FCECDF7D595686F3",
+  "debug_sha256": "0FE5B377F2F653B8CBF31AB7A62C8CAC7B60322C329D7BB8C34CD000E26B1747",
+  "tested_build_sha256": "76EE5CF5A9FEFC1F14B6FED008FBB63B42DBE24D61F3A132FCECDF7D595686F3"
+}

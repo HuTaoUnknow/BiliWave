@@ -1,0 +1,333 @@
+{
+  "date": "2026-10-22",
+  "reference": "Manually reviewed video subtitle appearance, quarter-second brackets (+/-0.125 s). Not an independent vocal-onset gold standard.",
+  "matching_input": "Same video audio stream, corrected existing lyrics; tuned alignment hints are raw machine OCR times, NOT reference times.",
+  "normalization": "NFKC, casefold, letters/numbers only; spaces and punctuation excluded. CER includes unmatched cue insertions/deletions.",
+  "samples": [
+    {
+      "language": "zh",
+      "url": "https://www.bilibili.com/video/BV1DL411q7o1/",
+      "video_sha256": "bd74c449183d6dae9694133851411a9c214d4b2fe4e9b0afa9b420a7942d5b7b",
+      "crop": [
+        0.12,
+        0.81,
+        0.76,
+        0.1
+      ],
+      "reference_cues": 17,
+      "reference_sha256": "f4cc3f7d5de8aec379799f54b48d392c79478c1649c92e962cb56dfb638909a6",
+      "baseline": {
+        "ocr": {
+          "output_cues": 20,
+          "matched_cues": 17,
+          "missing_cues": 0,
+          "extra_cues": 3,
+          "exact_cues": 17,
+          "character_errors": 25,
+          "reference_characters": 129,
+          "cer": 0.1938,
+          "timing": {
+            "mean_seconds": 0.346,
+            "max_seconds": 0.625,
+            "p95_seconds": 0.625,
+            "over_2_seconds": 0
+          },
+          "stats": {
+            "sampled_frames": 350,
+            "visual_segments": 55,
+            "ocr_calls": 43,
+            "output_lines": 20,
+            "init_seconds": 1.16,
+            "ocr_seconds": 4.039,
+            "elapsed_seconds": 5.847
+          }
+        },
+        "alignment": {
+          "timing": {
+            "mean_seconds": 0.857,
+            "max_seconds": 2.815,
+            "p95_seconds": 2.105,
+            "over_2_seconds": 2
+          },
+          "caption_fallback_lines": [],
+          "review_lines": [
+            1,
+            4,
+            8,
+            12,
+            17
+          ],
+          "wall_seconds": 19.097
+        }
+      },
+      "tuned": {
+        "ocr": {
+          "output_cues": 17,
+          "matched_cues": 17,
+          "missing_cues": 0,
+          "extra_cues": 0,
+          "exact_cues": 17,
+          "character_errors": 0,
+          "reference_characters": 129,
+          "cer": 0.0,
+          "timing": {
+            "mean_seconds": 0.346,
+            "max_seconds": 0.625,
+            "p95_seconds": 0.625,
+            "over_2_seconds": 0
+          },
+          "stats": {
+            "sampled_frames": 350,
+            "visual_segments": 55,
+            "ocr_calls": 43,
+            "output_lines": 17,
+            "filtered_credits": 3,
+            "init_seconds": 0.934,
+            "ocr_seconds": 2.822,
+            "elapsed_seconds": 4.374
+          }
+        },
+        "alignment": {
+          "timing": {
+            "mean_seconds": 0.633,
+            "max_seconds": 1.875,
+            "p95_seconds": 1.575,
+            "over_2_seconds": 0
+          },
+          "caption_fallback_lines": [
+            10
+          ],
+          "review_lines": [
+            1,
+            4,
+            5,
+            7,
+            8,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            17
+          ],
+          "wall_seconds": 22.724
+        }
+      },
+      "analysis_audio_sha256": "c4752c8a564cbd7abc4044a6ef99b85aab927ef7b77bec060ff1dba128512be6"
+    },
+    {
+      "language": "en",
+      "url": "https://www.bilibili.com/video/BV1xW411D7n8/",
+      "video_sha256": "c19e6a8dc703ac15149695f20494b3cc7b1624c28091267d3aa9612c93b6f992",
+      "crop": [
+        0.1,
+        0.94,
+        0.8,
+        0.06
+      ],
+      "reference_cues": 12,
+      "reference_sha256": "0bda24722a9eb6ad8d3af4bca52924f40acda24e0bb5a2b07473b14fb8b215e9",
+      "baseline": {
+        "ocr": {
+          "output_cues": 12,
+          "matched_cues": 12,
+          "missing_cues": 0,
+          "extra_cues": 0,
+          "exact_cues": 11,
+          "character_errors": 1,
+          "reference_characters": 258,
+          "cer": 0.00388,
+          "timing": {
+            "mean_seconds": 0.292,
+            "max_seconds": 0.625,
+            "p95_seconds": 0.375,
+            "over_2_seconds": 0
+          },
+          "stats": {
+            "sampled_frames": 402,
+            "visual_segments": 211,
+            "ocr_calls": 198,
+            "output_lines": 12,
+            "init_seconds": 0.892,
+            "ocr_seconds": 5.654,
+            "elapsed_seconds": 7.186
+          }
+        },
+        "alignment": {
+          "timing": {
+            "mean_seconds": 7.79,
+            "max_seconds": 40.995,
+            "p95_seconds": 34.995,
+            "over_2_seconds": 3
+          },
+          "caption_fallback_lines": [],
+          "review_lines": [
+            2,
+            7,
+            8
+          ],
+          "wall_seconds": 18.708
+        }
+      },
+      "tuned": {
+        "ocr": {
+          "output_cues": 12,
+          "matched_cues": 12,
+          "missing_cues": 0,
+          "extra_cues": 0,
+          "exact_cues": 11,
+          "character_errors": 1,
+          "reference_characters": 258,
+          "cer": 0.00388,
+          "timing": {
+            "mean_seconds": 0.292,
+            "max_seconds": 0.625,
+            "p95_seconds": 0.375,
+            "over_2_seconds": 0
+          },
+          "stats": {
+            "sampled_frames": 402,
+            "visual_segments": 211,
+            "ocr_calls": 198,
+            "output_lines": 12,
+            "filtered_credits": 0,
+            "init_seconds": 0.873,
+            "ocr_seconds": 5.622,
+            "elapsed_seconds": 7.142
+          }
+        },
+        "alignment": {
+          "timing": {
+            "mean_seconds": 0.636,
+            "max_seconds": 1.175,
+            "p95_seconds": 1.135,
+            "over_2_seconds": 0
+          },
+          "caption_fallback_lines": [],
+          "review_lines": [
+            2
+          ],
+          "wall_seconds": 23.654
+        }
+      },
+      "analysis_audio_sha256": "cc73735c7b484eaab25f62678b445aabb4cef7b690c91e2b86c77e9117dcbaea"
+    },
+    {
+      "language": "ru",
+      "url": "https://www.bilibili.com/video/BV1pK4y1W7uZ/",
+      "video_sha256": "3dcc840bca004d8bdf8035dfdda4173b65123f64aa0a4576672e4bce54b7c878",
+      "crop": [
+        0,
+        0.81,
+        1,
+        0.18
+      ],
+      "reference_cues": 30,
+      "reference_sha256": "9db949c08d306abe439fa572eb48b1b2e1c4ab10530b716497409c70ba6a30e7",
+      "baseline": {
+        "ocr": {
+          "output_cues": 31,
+          "matched_cues": 30,
+          "missing_cues": 0,
+          "extra_cues": 1,
+          "exact_cues": 29,
+          "character_errors": 33,
+          "reference_characters": 944,
+          "cer": 0.03496,
+          "timing": {
+            "mean_seconds": 0.333,
+            "max_seconds": 0.625,
+            "p95_seconds": 0.625,
+            "over_2_seconds": 0
+          },
+          "stats": {
+            "sampled_frames": 309,
+            "visual_segments": 176,
+            "ocr_calls": 176,
+            "output_lines": 31,
+            "init_seconds": 1.054,
+            "ocr_seconds": 11.406,
+            "elapsed_seconds": 13.079
+          },
+          "russian_exact_cues": 30,
+          "chinese_translation_exact_cues": 29
+        },
+        "alignment": {
+          "timing": {
+            "mean_seconds": 0.37,
+            "max_seconds": 0.945,
+            "p95_seconds": 0.915,
+            "over_2_seconds": 0
+          },
+          "caption_fallback_lines": [],
+          "review_lines": [
+            4,
+            9,
+            11,
+            12,
+            13
+          ],
+          "wall_seconds": 24.442
+        }
+      },
+      "tuned": {
+        "ocr": {
+          "output_cues": 30,
+          "matched_cues": 30,
+          "missing_cues": 0,
+          "extra_cues": 0,
+          "exact_cues": 29,
+          "character_errors": 1,
+          "reference_characters": 944,
+          "cer": 0.00106,
+          "timing": {
+            "mean_seconds": 0.317,
+            "max_seconds": 0.625,
+            "p95_seconds": 0.625,
+            "over_2_seconds": 0
+          },
+          "stats": {
+            "sampled_frames": 309,
+            "visual_segments": 176,
+            "ocr_calls": 176,
+            "output_lines": 30,
+            "filtered_credits": 0,
+            "init_seconds": 1.067,
+            "ocr_seconds": 11.658,
+            "elapsed_seconds": 13.341
+          },
+          "russian_exact_cues": 30,
+          "chinese_translation_exact_cues": 29
+        },
+        "alignment": {
+          "timing": {
+            "mean_seconds": 0.361,
+            "max_seconds": 0.945,
+            "p95_seconds": 0.835,
+            "over_2_seconds": 0
+          },
+          "caption_fallback_lines": [
+            25,
+            26,
+            30
+          ],
+          "review_lines": [
+            4,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            25,
+            26,
+            30
+          ],
+          "wall_seconds": 28.735
+        }
+      },
+      "analysis_audio_sha256": "c23d56b16992164290ac2649828bd71e1e724cb4d9ce9053612e632510454edc"
+    }
+  ]
+}

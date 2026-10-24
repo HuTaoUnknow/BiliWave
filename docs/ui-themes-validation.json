@@ -1,0 +1,72 @@
+{
+  "screenshot_regular_states_per_theme": 13,
+  "qt_online_lookup_skipped": 1,
+  "release_sha256": "44ABB76DDE279E19EAB8435866F49EAA13A99327294D7B4F2CDBA6EC1D2402FE",
+  "debug_sha256": "684A2D1F6DC3F2CF03C95D6B1DA468CC418370B16EB4B75A528486433EC70BA1",
+  "theme_screenshots": 32,
+  "tested_build_sha256": "44ABB76DDE279E19EAB8435866F49EAA13A99327294D7B4F2CDBA6EC1D2402FE",
+  "date": "2026-10-23",
+  "test_data": "local synthetic audio, fixture lyrics and color frame; no online source or live OCR result",
+  "tested_sizes": [
+    "1240x850",
+    "1040x650"
+  ],
+  "preserved": [
+    "queue occurrence IDs and playback state",
+    "background lyric task and pending result",
+    "independent overlay preferences",
+    "current export and lyric acquisition workflows"
+  ],
+  "startup": [
+    {
+      "capture": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\ui-themes-startup-4987b5813bac4bc9b42a32e2dea489a4\\release-dark\\capture\\library.png",
+      "exit_code": 0,
+      "theme": "dark",
+      "flavor": "release",
+      "background_rgb": [
+        13,
+        20,
+        29
+      ]
+    },
+    {
+      "capture": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\ui-themes-startup-4987b5813bac4bc9b42a32e2dea489a4\\release-pink\\capture\\library.png",
+      "exit_code": 0,
+      "theme": "pink",
+      "flavor": "release",
+      "background_rgb": [
+        255,
+        248,
+        251
+      ]
+    },
+    {
+      "capture": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\ui-themes-startup-4987b5813bac4bc9b42a32e2dea489a4\\build-debug-dark\\capture\\library.png",
+      "exit_code": 0,
+      "theme": "dark",
+      "flavor": "build-debug",
+      "background_rgb": [
+        13,
+        20,
+        29
+      ]
+    },
+    {
+      "capture": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\ui-themes-startup-4987b5813bac4bc9b42a32e2dea489a4\\build-debug-pink\\capture\\library.png",
+      "exit_code": 0,
+      "theme": "pink",
+      "flavor": "build-debug",
+      "background_rgb": [
+        255,
+        248,
+        251
+      ]
+    }
+  ],
+  "lite_suites_passed": 2,
+  "qt_ctest_seconds": 63.74,
+  "screenshot_compact_states_per_theme": 3,
+  "qt_suites_passed": 4,
+  "redesign_test_cases_passed": 14,
+  "theme_workflow_cases_passed": 1
+}

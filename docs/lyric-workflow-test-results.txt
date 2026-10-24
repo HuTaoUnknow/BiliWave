@@ -1,0 +1,13 @@
+********* Start testing of LyricWorkflowTests *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-llp64 shared (dynamic) release build; by GCC 13.1.0), windows 11
+PASS   : LyricWorkflowTests::initTestCase()
+PASS   : LyricWorkflowTests::importReviewAndApply()
+PASS   : LyricWorkflowTests::videoRangeAndScreenshots()
+PASS   : LyricWorkflowTests::realAlignment()
+PASS   : LyricWorkflowTests::videoOcrPipeline()
+PASS   : LyricWorkflowTests::cancellingKeepsResultOut()
+SKIP   : LyricWorkflowTests::onlineLookup() Live network check is opt-in
+D:/PC/Project/Qt/bilibili_mp3/tests/lyric_workflow_tests.cpp(137) : failure location
+PASS   : LyricWorkflowTests::cleanupTestCase()
+Totals: 7 passed, 0 failed, 1 skipped, 0 blacklisted, 17010ms
+********* Finished testing of LyricWorkflowTests *********

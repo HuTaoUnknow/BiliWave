@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-23",
+  "qt_suites_passed": 4,
+  "startup": [
+    {
+      "exit_code": 0,
+      "capture": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\settings-workbench-startup-55731d62126d419b81dfda19ce814b06\\release\\capture\\library.png",
+      "flavor": "release"
+    },
+    {
+      "exit_code": 0,
+      "capture": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\settings-workbench-startup-55731d62126d419b81dfda19ce814b06\\build-debug\\capture\\library.png",
+      "flavor": "build-debug"
+    }
+  ],
+  "debug_sha256": "3876C57D3F3D3A49DB12EC5743922DD8DBADAE967CFFF3A86F96F86A731A5F58",
+  "release_sha256": "04774604ECEFB07743608FCF0F6186886E419089D95921DF85232F578D274778",
+  "features": [
+    "settings_categories",
+    "exclusive_checkbox_choices",
+    "wheel_choice_safety",
+    "separate_workbench",
+    "download_arrow_navigation",
+    "background_queue_across_pages",
+    "navigation_migration",
+    "splitter_persistence"
+  ],
+  "qt_online_lookup_skipped": 1,
+  "tested_build_sha256": "04774604ECEFB07743608FCF0F6186886E419089D95921DF85232F578D274778",
+  "lite_suites_passed": 2
+}

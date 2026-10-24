@@ -1,0 +1,137 @@
+{
+  "previous_cpu": {
+    "wall_seconds": 56.194,
+    "stats": {
+      "ocr_calls": 60
+    },
+    "events": [
+      {
+        "start": 0.0,
+        "end": 10.0,
+        "text": "听见微光",
+        "confidence": 0.9998422712087631
+      },
+      {
+        "start": 15.0,
+        "end": 25.0,
+        "text": "落在窗前",
+        "confidence": 0.9998323172330856
+      }
+    ],
+    "backend": {
+      "provider": "CPUExecutionProvider"
+    }
+  },
+  "grouped_cpu": {
+    "wall_seconds": 1.164,
+    "stats": {
+      "sampled_frames": 60,
+      "visual_segments": 4,
+      "ocr_calls": 2,
+      "output_lines": 2,
+      "init_seconds": 0.514,
+      "ocr_seconds": 0.113,
+      "elapsed_seconds": 0.881
+    },
+    "events": [
+      {
+        "start": 0.0,
+        "end": 10.0,
+        "text": "听见微光",
+        "confidence": 0.9997199773788452,
+        "representative_time": 5.0,
+        "merged_segments": 1
+      },
+      {
+        "start": 15.0,
+        "end": 25.0,
+        "text": "落在窗前",
+        "confidence": 0.9998055845499039,
+        "representative_time": 20.0,
+        "merged_segments": 1
+      }
+    ],
+    "backend": {
+      "provider": "CPUExecutionProvider",
+      "adapter": {},
+      "runtime_version": "1.24.4",
+      "sessions": [
+        [
+          "CPUExecutionProvider"
+        ],
+        [
+          "CPUExecutionProvider"
+        ],
+        [
+          "CPUExecutionProvider"
+        ]
+      ],
+      "label": "CPU"
+    }
+  },
+  "grouped_gpu": {
+    "wall_seconds": 3.154,
+    "stats": {
+      "sampled_frames": 60,
+      "visual_segments": 4,
+      "ocr_calls": 2,
+      "output_lines": 2,
+      "init_seconds": 0.944,
+      "ocr_seconds": 1.549,
+      "elapsed_seconds": 2.727
+    },
+    "events": [
+      {
+        "start": 0.0,
+        "end": 10.0,
+        "text": "听见微光",
+        "confidence": 0.999719887971878,
+        "representative_time": 5.0,
+        "merged_segments": 1
+      },
+      {
+        "start": 15.0,
+        "end": 25.0,
+        "text": "落在窗前",
+        "confidence": 0.9998054653406143,
+        "representative_time": 20.0,
+        "merged_segments": 1
+      }
+    ],
+    "backend": {
+      "provider": "DmlExecutionProvider",
+      "adapter": {
+        "id": 0,
+        "name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+        "vendor": 4318,
+        "memory_bytes": 6285164544
+      },
+      "runtime_version": "1.24.4",
+      "sessions": [
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      ],
+      "label": "GPU · NVIDIA GeForce RTX 3060 Laptop GPU",
+      "profiles": [
+        "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\ocr-benchmark\\grouped_gpu\\ocr-profile-0_2026-10-22_17-53-33.json",
+        "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\ocr-benchmark\\grouped_gpu\\ocr-profile-1_2026-10-22_17-53-33.json",
+        "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\ocr-benchmark\\grouped_gpu\\ocr-profile-2_2026-10-22_17-53-33.json"
+      ]
+    },
+    "profile_node_executions": {
+      "DmlExecutionProvider": 1294,
+      "CPUExecutionProvider": 24
+    }
+  },
+  "wall_speedup": 17.82
+}

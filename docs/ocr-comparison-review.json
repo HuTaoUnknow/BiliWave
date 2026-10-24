@@ -1,0 +1,23 @@
+{
+  "visual_default_threshold": 0.22,
+  "text_default_threshold": 0.6,
+  "confidence_guard": 0.95,
+  "bilingual_case": {
+    "first": "Hello world\n这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译",
+    "second": "Another day\n这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译这是保持不变但非常长的一句中文翻译",
+    "old_combined_ratio": 0.958904109589041,
+    "new_per_language_minimum": 0.4
+  },
+  "single_character_case": {
+    "first": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "second": "ABCDEFGHI1KLMNOPQRSTUVWXYZ",
+    "similarity": 0.9615384615384616
+  },
+  "visual_calculation_example": {
+    "edge_count_a": 1000,
+    "edge_count_b": 1100,
+    "unmatched_a": 150,
+    "unmatched_b": 330,
+    "difference": 0.3
+  }
+}

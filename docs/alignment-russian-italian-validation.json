@@ -1,0 +1,65 @@
+{
+  "ru_auto": {
+    "lrc": "[00:00.72]Они умеют отлично видеть в темноте при помощи ночного видения и почти незаметно передвигаться.\n[00:06.92]Оцелоты выслеживают добычу, сливаясь с окружающей обстановкой, а затем набрасываются на добычу.\n[00:12.72]",
+    "lines": [
+      {
+        "text": "Они умеют отлично видеть в темноте при помощи ночного видения и почти незаметно передвигаться.",
+        "start": 0.72,
+        "end": 6.9,
+        "review": false
+      },
+      {
+        "text": "Оцелоты выслеживают добычу, сливаясь с окружающей обстановкой, а затем набрасываются на добычу.",
+        "start": 6.92,
+        "end": 12.72,
+        "review": false
+      }
+    ],
+    "warnings": [],
+    "language": "ru",
+    "source": "已有歌词 · 音频强制对齐",
+    "ok": true
+  },
+  "it_it": {
+    "lrc": "[00:00.24]Il sole illumina la città.\n[00:02.22]La musica ci accompagna ogni giorno.\n[00:04.24]",
+    "lines": [
+      {
+        "text": "Il sole illumina la città.",
+        "start": 0.24,
+        "end": 1.7,
+        "review": false
+      },
+      {
+        "text": "La musica ci accompagna ogni giorno.",
+        "start": 2.22,
+        "end": 4.24,
+        "review": false
+      }
+    ],
+    "warnings": [],
+    "language": "it",
+    "source": "已有歌词 · 音频强制对齐",
+    "ok": true
+  },
+  "it_auto": {
+    "lrc": "[00:00.24]Il sole illumina la città.\n[00:02.22]La musica ci accompagna ogni giorno.\n[00:04.24]",
+    "lines": [
+      {
+        "text": "Il sole illumina la città.",
+        "start": 0.24,
+        "end": 1.7,
+        "review": false
+      },
+      {
+        "text": "La musica ci accompagna ogni giorno.",
+        "start": 2.22,
+        "end": 4.24,
+        "review": false
+      }
+    ],
+    "warnings": [],
+    "language": "it",
+    "source": "已有歌词 · 音频强制对齐",
+    "ok": true
+  }
+}

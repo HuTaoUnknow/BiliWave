@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-22",
+  "qt_suites": 4,
+  "failures": 0,
+  "debug_startup_exit": 0,
+  "release_startup_exit": 0,
+  "release_sha256": "a9b6829ff254d4e4fa875160867d2c267a665015601c0467df2ab4a739bc36e6",
+  "export_audio_stream_hashes_verified": [
+    "FLAC",
+    "AAC"
+  ],
+  "export_embedded_and_sidecar_lyrics_verified": true,
+  "export_bilingual_and_offset_verified": true,
+  "url_export_isolation_verified_with_controlled_downloader": true,
+  "cancel_owned_output_cleanup_verified": true,
+  "real_end_of_media_consumes_queue_verified": true,
+  "queue_markers_maximum": 10,
+  "queue_marker_color_and_pixel_length_verified": true
+}

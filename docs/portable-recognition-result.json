@@ -1,0 +1,19 @@
+{
+    "preview": [
+        {
+            "ms": 0,
+            "text": "And so my fellow Americans, ask not what your"
+        },
+        {
+            "ms": 5740,
+            "text": "country can do for you, ask what you can do for"
+        },
+        {
+            "ms": 9820,
+            "text": "your country."
+        }
+    ],
+    "source": "离线 Whisper（自动识别）",
+    "success": true,
+    "timed_lines": 3
+}

@@ -1,0 +1,39 @@
+{
+  "wall_seconds": 8.605,
+  "stats": {
+    "sampled_frames": 60,
+    "visual_segments": 26,
+    "ocr_calls": 26,
+    "output_lines": 10,
+    "init_seconds": 1.102,
+    "ocr_seconds": 6.636,
+    "elapsed_seconds": 8.128
+  },
+  "backend": {
+    "provider": "DmlExecutionProvider",
+    "adapter": {
+      "id": 0,
+      "name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+      "vendor": 4318,
+      "memory_bytes": 6285164544
+    },
+    "runtime_version": "1.24.4",
+    "sessions": [
+      [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider"
+      ]
+    ],
+    "label": "GPU · NVIDIA GeForce RTX 3060 Laptop GPU"
+  },
+  "event_count": 10,
+  "source": "Previously cached video, 25s to 55s, crop y=.915 h=.075"
+}

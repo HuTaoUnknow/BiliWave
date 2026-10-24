@@ -1,0 +1,13 @@
+********* Start testing of CoreTests *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-llp64 shared (dynamic) release build; by GCC 13.1.0), windows 11
+PASS   : CoreTests::initTestCase()
+PASS   : CoreTests::lyrics()
+PASS   : CoreTests::playlistsAndPersistence()
+QINFO  : CoreTests::queueModes() qt.multimedia.ffmpeg: Using Qt multimedia with FFmpeg version 7.1.3 LGPL version 2.1 or later
+QWARN  : CoreTests::queueModes() qt.multimedia.ffmpeg.mediadataholder: Could not open media. FFmpeg error description: Immediate exit requested
+QWARN  : CoreTests::queueModes() qt.multimedia.ffmpeg.mediadataholder: Could not open media. FFmpeg error description: Invalid data found when processing input
+QWARN  : CoreTests::queueModes() qt.multimedia.ffmpeg.mediadataholder: Could not open media. FFmpeg error description: Invalid data found when processing input
+PASS   : CoreTests::queueModes()
+PASS   : CoreTests::cleanupTestCase()
+Totals: 5 passed, 0 failed, 0 skipped, 0 blacklisted, 81ms
+********* Finished testing of CoreTests *********

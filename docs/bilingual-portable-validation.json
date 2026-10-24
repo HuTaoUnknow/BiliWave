@@ -1,0 +1,73 @@
+{
+  "text": "Привет, мир!\n你好，世界！\nВсё начинается с мечты.\n一切从梦想开始。",
+  "events": [
+    {
+      "start": 0.0,
+      "end": 3.0,
+      "text": "Привет, мир!\n你好，世界！",
+      "confidence": 0.9307792484760284,
+      "representative_time": 1.0,
+      "merged_segments": 1,
+      "observed_end": 2.0
+    },
+    {
+      "start": 3.0,
+      "end": 6.0,
+      "text": "Всё начинается с мечты.\n一切从梦想开始。",
+      "confidence": 0.9786148045373999,
+      "representative_time": 4.0,
+      "merged_segments": 1,
+      "observed_end": 5.0
+    }
+  ],
+  "lrc": "[00:00.00]Привет, мир!\n[00:00.00]你好，世界！\n[00:03.00]Всё начинается с мечты.\n[00:03.00]一切从梦想开始。",
+  "interval": 0.5,
+  "stats": {
+    "sampled_frames": 12,
+    "visual_segments": 4,
+    "ocr_calls": 2,
+    "output_lines": 2,
+    "init_seconds": 1.164,
+    "ocr_seconds": 2.221,
+    "elapsed_seconds": 3.589
+  },
+  "backend": {
+    "provider": "DmlExecutionProvider",
+    "adapter": {
+      "id": 0,
+      "name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+      "vendor": 4318,
+      "memory_bytes": 6285164544
+    },
+    "runtime_version": "1.24.4",
+    "sessions": [
+      [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider"
+      ]
+    ],
+    "ocr_language": "ru_zh",
+    "language_name": "俄汉双语",
+    "recognition_model": "D:\\PC\\Project\\Qt\\bilibili_mp3\\release\\models\\ocr\\cyrillic_PP-OCRv5_rec_mobile.onnx",
+    "label": "GPU · NVIDIA GeForce RTX 3060 Laptop GPU"
+  },
+  "change_threshold": 0.22,
+  "text_similarity": 0.6,
+  "warnings": [
+    "按画面变化分段并取中间帧；时间精度受 0.5 秒采样影响。请使用同源视频并试听。"
+  ],
+  "source": "视频字幕 OCR · 俄汉双语 · 中间帧识别与相似句合并",
+  "ok": true
+}

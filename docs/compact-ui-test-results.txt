@@ -1,0 +1,11 @@
+********* Start testing of RedesignTests *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-llp64 shared (dynamic) release build; by GCC 13.1.0), windows 11
+PASS   : RedesignTests::initTestCase()
+QINFO  : RedesignTests::compactControlsAndUrlCollection() qt.multimedia.ffmpeg: Using Qt multimedia with FFmpeg version 7.1.3 LGPL version 2.1 or later
+PASS   : RedesignTests::compactControlsAndUrlCollection()
+PASS   : RedesignTests::playbackBrowsingAndQueue()
+PASS   : RedesignTests::searchData()
+PASS   : RedesignTests::modulesMembershipAndLyrics()
+PASS   : RedesignTests::cleanupTestCase()
+Totals: 6 passed, 0 failed, 0 skipped, 0 blacklisted, 2326ms
+********* Finished testing of RedesignTests *********

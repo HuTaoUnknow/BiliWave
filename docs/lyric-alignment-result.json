@@ -1,0 +1,28 @@
+{
+  "lrc": "[00:00.32]And so, my fellow Americans,\n[00:03.66]ask not what your country can do for you,\n[00:08.34]ask what you can do for your country.\n[00:10.26]",
+  "lines": [
+    {
+      "text": "And so, my fellow Americans,",
+      "start": 0.32,
+      "end": 3.66,
+      "review": true
+    },
+    {
+      "text": "ask not what your country can do for you,",
+      "start": 3.66,
+      "end": 8.34,
+      "review": false
+    },
+    {
+      "text": "ask what you can do for your country.",
+      "start": 8.34,
+      "end": 10.26,
+      "review": false
+    }
+  ],
+  "warnings": [
+    "第 1 行需试听检查：And so, my fellow Americans,"
+  ],
+  "source": "本地测试原文 · 音频强制对齐",
+  "ok": true
+}

@@ -1,0 +1,364 @@
+[
+  {
+    "language": "en_zh",
+    "device": "cpu",
+    "events": [
+      {
+        "start": 0.0,
+        "end": 3.0,
+        "text": "Hello, world!\n你好，世界!",
+        "confidence": 0.9236309925715128,
+        "representative_time": 1.0,
+        "merged_segments": 1,
+        "observed_end": 2.0
+      },
+      {
+        "start": 3.0,
+        "end": 6.0,
+        "text": "A new day begins.\n新的一天开始了。",
+        "confidence": 0.999566095716813,
+        "representative_time": 4.0,
+        "merged_segments": 1,
+        "observed_end": 5.0
+      }
+    ],
+    "lrc": "[00:00.00]Hello, world!\n[00:00.00]你好，世界!\n[00:03.00]A new day begins.\n[00:03.00]新的一天开始了。",
+    "backend": {
+      "provider": "CPUExecutionProvider",
+      "adapter": {},
+      "runtime_version": "1.24.4",
+      "sessions": [
+        [
+          "CPUExecutionProvider"
+        ],
+        [
+          "CPUExecutionProvider"
+        ],
+        [
+          "CPUExecutionProvider"
+        ]
+      ],
+      "ocr_language": "en_zh",
+      "language_name": "英汉双语",
+      "recognition_model": "bundled Chinese/English",
+      "label": "CPU"
+    },
+    "stats": {
+      "sampled_frames": 12,
+      "visual_segments": 4,
+      "ocr_calls": 2,
+      "output_lines": 2,
+      "init_seconds": 0.533,
+      "ocr_seconds": 0.346,
+      "elapsed_seconds": 1.039
+    }
+  },
+  {
+    "language": "en_zh",
+    "device": "gpu",
+    "events": [
+      {
+        "start": 0.0,
+        "end": 3.0,
+        "text": "Hello, world!\n你好，世界!",
+        "confidence": 0.9236301481723785,
+        "representative_time": 1.0,
+        "merged_segments": 1,
+        "observed_end": 2.0
+      },
+      {
+        "start": 3.0,
+        "end": 6.0,
+        "text": "A new day begins.\n新的一天开始了。",
+        "confidence": 0.9995660501367906,
+        "representative_time": 4.0,
+        "merged_segments": 1,
+        "observed_end": 5.0
+      }
+    ],
+    "lrc": "[00:00.00]Hello, world!\n[00:00.00]你好，世界!\n[00:03.00]A new day begins.\n[00:03.00]新的一天开始了。",
+    "backend": {
+      "provider": "DmlExecutionProvider",
+      "adapter": {
+        "id": 0,
+        "name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+        "vendor": 4318,
+        "memory_bytes": 6285164544
+      },
+      "runtime_version": "1.24.4",
+      "sessions": [
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      ],
+      "ocr_language": "en_zh",
+      "language_name": "英汉双语",
+      "recognition_model": "bundled Chinese/English",
+      "label": "GPU · NVIDIA GeForce RTX 3060 Laptop GPU"
+    },
+    "stats": {
+      "sampled_frames": 12,
+      "visual_segments": 4,
+      "ocr_calls": 2,
+      "output_lines": 2,
+      "init_seconds": 1.025,
+      "ocr_seconds": 2.158,
+      "elapsed_seconds": 3.349
+    }
+  },
+  {
+    "language": "ru_zh",
+    "device": "cpu",
+    "events": [
+      {
+        "start": 0.0,
+        "end": 3.0,
+        "text": "Привет, мир!\n你好，世界！",
+        "confidence": 0.9307799438635508,
+        "representative_time": 1.0,
+        "merged_segments": 1,
+        "observed_end": 2.0
+      },
+      {
+        "start": 3.0,
+        "end": 6.0,
+        "text": "Всё начинается с мечты.\n一切从梦想开始。",
+        "confidence": 0.9786151932633441,
+        "representative_time": 4.0,
+        "merged_segments": 1,
+        "observed_end": 5.0
+      }
+    ],
+    "lrc": "[00:00.00]Привет, мир!\n[00:00.00]你好，世界！\n[00:03.00]Всё начинается с мечты.\n[00:03.00]一切从梦想开始。",
+    "backend": {
+      "provider": "CPUExecutionProvider",
+      "adapter": {},
+      "runtime_version": "1.24.4",
+      "sessions": [
+        [
+          "CPUExecutionProvider"
+        ],
+        [
+          "CPUExecutionProvider"
+        ],
+        [
+          "CPUExecutionProvider"
+        ],
+        [
+          "CPUExecutionProvider"
+        ]
+      ],
+      "ocr_language": "ru_zh",
+      "language_name": "俄汉双语",
+      "recognition_model": "D:\\PC\\Project\\Qt\\bilibili_mp3\\models\\ocr\\cyrillic_PP-OCRv5_rec_mobile.onnx",
+      "label": "CPU"
+    },
+    "stats": {
+      "sampled_frames": 12,
+      "visual_segments": 4,
+      "ocr_calls": 2,
+      "output_lines": 2,
+      "init_seconds": 0.752,
+      "ocr_seconds": 0.642,
+      "elapsed_seconds": 1.576
+    }
+  },
+  {
+    "language": "ru_zh",
+    "device": "gpu",
+    "events": [
+      {
+        "start": 0.0,
+        "end": 3.0,
+        "text": "Привет, мир!\n你好，世界！",
+        "confidence": 0.9307792484760284,
+        "representative_time": 1.0,
+        "merged_segments": 1,
+        "observed_end": 2.0
+      },
+      {
+        "start": 3.0,
+        "end": 6.0,
+        "text": "Всё начинается с мечты.\n一切从梦想开始。",
+        "confidence": 0.9786148045373999,
+        "representative_time": 4.0,
+        "merged_segments": 1,
+        "observed_end": 5.0
+      }
+    ],
+    "lrc": "[00:00.00]Привет, мир!\n[00:00.00]你好，世界！\n[00:03.00]Всё начинается с мечты.\n[00:03.00]一切从梦想开始。",
+    "backend": {
+      "provider": "DmlExecutionProvider",
+      "adapter": {
+        "id": 0,
+        "name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+        "vendor": 4318,
+        "memory_bytes": 6285164544
+      },
+      "runtime_version": "1.24.4",
+      "sessions": [
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      ],
+      "ocr_language": "ru_zh",
+      "language_name": "俄汉双语",
+      "recognition_model": "D:\\PC\\Project\\Qt\\bilibili_mp3\\models\\ocr\\cyrillic_PP-OCRv5_rec_mobile.onnx",
+      "label": "GPU · NVIDIA GeForce RTX 3060 Laptop GPU"
+    },
+    "stats": {
+      "sampled_frames": 12,
+      "visual_segments": 4,
+      "ocr_calls": 2,
+      "output_lines": 2,
+      "init_seconds": 1.347,
+      "ocr_seconds": 2.441,
+      "elapsed_seconds": 3.955
+    }
+  },
+  {
+    "language": "it_zh",
+    "device": "cpu",
+    "events": [
+      {
+        "start": 0.0,
+        "end": 3.0,
+        "text": "È già una bella città.\n这已经是一座美丽的城市。",
+        "confidence": 0.9862748357382688,
+        "representative_time": 1.0,
+        "merged_segments": 1,
+        "observed_end": 2.0
+      },
+      {
+        "start": 3.0,
+        "end": 6.0,
+        "text": "L'amore è qui con noi.\n爱与我们同在。",
+        "confidence": 0.9981298365376212,
+        "representative_time": 4.0,
+        "merged_segments": 1,
+        "observed_end": 5.0
+      }
+    ],
+    "lrc": "[00:00.00]È già una bella città.\n[00:00.00]这已经是一座美丽的城市。\n[00:03.00]L'amore è qui con noi.\n[00:03.00]爱与我们同在。",
+    "backend": {
+      "provider": "CPUExecutionProvider",
+      "adapter": {},
+      "runtime_version": "1.24.4",
+      "sessions": [
+        [
+          "CPUExecutionProvider"
+        ],
+        [
+          "CPUExecutionProvider"
+        ],
+        [
+          "CPUExecutionProvider"
+        ],
+        [
+          "CPUExecutionProvider"
+        ]
+      ],
+      "ocr_language": "it_zh",
+      "language_name": "意汉双语",
+      "recognition_model": "D:\\PC\\Project\\Qt\\bilibili_mp3\\models\\ocr\\latin_PP-OCRv5_rec_mobile.onnx",
+      "label": "CPU"
+    },
+    "stats": {
+      "sampled_frames": 12,
+      "visual_segments": 4,
+      "ocr_calls": 2,
+      "output_lines": 2,
+      "init_seconds": 0.685,
+      "ocr_seconds": 0.672,
+      "elapsed_seconds": 1.548
+    }
+  },
+  {
+    "language": "it_zh",
+    "device": "gpu",
+    "events": [
+      {
+        "start": 0.0,
+        "end": 3.0,
+        "text": "È già una bella città.\n这已经是一座美丽的城市。",
+        "confidence": 0.9862749576568604,
+        "representative_time": 1.0,
+        "merged_segments": 1,
+        "observed_end": 2.0
+      },
+      {
+        "start": 3.0,
+        "end": 6.0,
+        "text": "L'amore è qui con noi.\n爱与我们同在。",
+        "confidence": 0.9981297715143724,
+        "representative_time": 4.0,
+        "merged_segments": 1,
+        "observed_end": 5.0
+      }
+    ],
+    "lrc": "[00:00.00]È già una bella città.\n[00:00.00]这已经是一座美丽的城市。\n[00:03.00]L'amore è qui con noi.\n[00:03.00]爱与我们同在。",
+    "backend": {
+      "provider": "DmlExecutionProvider",
+      "adapter": {
+        "id": 0,
+        "name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+        "vendor": 4318,
+        "memory_bytes": 6285164544
+      },
+      "runtime_version": "1.24.4",
+      "sessions": [
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      ],
+      "ocr_language": "it_zh",
+      "language_name": "意汉双语",
+      "recognition_model": "D:\\PC\\Project\\Qt\\bilibili_mp3\\models\\ocr\\latin_PP-OCRv5_rec_mobile.onnx",
+      "label": "GPU · NVIDIA GeForce RTX 3060 Laptop GPU"
+    },
+    "stats": {
+      "sampled_frames": 12,
+      "visual_segments": 4,
+      "ocr_calls": 2,
+      "output_lines": 2,
+      "init_seconds": 1.673,
+      "ocr_seconds": 2.64,
+      "elapsed_seconds": 4.523
+    }
+  }
+]

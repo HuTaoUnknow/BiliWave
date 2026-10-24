@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-22",
+  "qt_suites": 4,
+  "failures": 0,
+  "debug_startup_exit": 0,
+  "release_startup_exit": 0,
+  "release_sha256": "9C1F7A592DD3DE8C31CEBFF4B44B84D8FC742E5429EC61D06F27CDDCE29C2E9F",
+  "drag_playlist_copy_reorder_queue_and_escape_verified": true,
+  "drag_only_music_note": true,
+  "discard_download_owned_files_and_lyric_tasks_verified": true,
+  "local_original_preserved_verified": true,
+  "navigation_and_queue_controls_screenshot_reviewed": true
+}

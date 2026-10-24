@@ -1,0 +1,47 @@
+{
+  "standalone_smoke": [
+    {
+      "flavor": "release",
+      "exit_code": 0
+    },
+    {
+      "flavor": "build-debug",
+      "exit_code": 0
+    },
+    {
+      "flavor": "release-lite",
+      "exit_code": 0
+    }
+  ],
+  "debug_sha256": "92C28471A38781A14ADCC998DBB84164DDB765F290C98FE40F6009FE02F39DA3",
+  "native_release_resource_check": {
+    "exe": "build/BiliWave.exe",
+    "native_icon_frames": 9,
+    "transparent": true
+  },
+  "ico_sizes": [
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64,
+    128,
+    256
+  ],
+  "png_sha256": "06E6D4764FD71BF6A729BE500F70E323C9CC714D1DFD77990D2B257395972375",
+  "alpha_background_transparent": true,
+  "targeted_tray_test_passed": true,
+  "lite_release_sha256": "BF796523A0A83BA353A4098154FED3C86D45D2F5C0DF1136DDAC45E716CAE422",
+  "tested_lite_build_sha256": "BF796523A0A83BA353A4098154FED3C86D45D2F5C0DF1136DDAC45E716CAE422",
+  "png_width": 1254,
+  "date": "2026-10-23",
+  "tested_build_sha256": "7AD5EFCEDD0E7A5A937FE3BE3FFB355629EE4CB659E7261F4B519BE324943187",
+  "selected_concept": 5,
+  "png_height": 1254,
+  "selected_name": "柔润波带",
+  "generator": "built-in image_gen",
+  "release_sha256": "7AD5EFCEDD0E7A5A937FE3BE3FFB355629EE4CB659E7261F4B519BE324943187",
+  "ico_sha256": "A387D870033F5B8D650A588E5CA393DD5804B56393FE8AB84DB292D3183A6008"
+}

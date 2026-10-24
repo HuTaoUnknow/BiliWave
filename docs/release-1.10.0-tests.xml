@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Win32-ninja"
+	tests="6"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname="[NON-UTF-8-BYTE-0xBA][NON-UTF-8-BYTE-0xFA][NON-UTF-8-BYTE-0xCC]Ҳ[NON-UTF-8-BYTE-0xBB]֪[NON-UTF-8-BYTE-0xB5][NON-UTF-8-BYTE-0xC0]PC"
+	time="70"
+	timestamp="2026-10-24T23:19:21"
+	>
+	<testcase name="online_lyrics_tests" classname="online_lyrics_tests" time="1.16607" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="ducking_tests" classname="ducking_tests" time="9.16055" status="run">
+		<properties/>
+		<system-out>Input #0, wav, from 'C:/Users/Administrator/AppData/Local/Temp/ducking_tests-KxLlge/tone.wav':
+  Duration: 00:00:02.00, bitrate: 384 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, 1 channels, s16, 384 kb/s
+</system-out>
+	</testcase>
+	<testcase name="core_tests" classname="core_tests" time="2.92106" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="integration_tests" classname="integration_tests" time="5.68433" status="run">
+		<properties/>
+		<system-out>Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'D:/PC/Project/Qt/bilibili_mp3/build/integration-wTguGv/80bd160d-3089-459b-a339-679d35d68a78.m4a':
+  Metadata:
+    major_brand     : M4A 
+    minor_version   : 512
+    compatible_brands: M4A isomiso2
+    title           : 听见微光
+    artist          : BiliWave
+    encoder         : Lavf63.1.102
+  Duration: 00:00:08.02, start: 0.000000, bitrate: 154 kb/s
+  Stream #0:0[0x1](und): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, mono, fltp, 152 kb/s (default)
+      Metadata:
+        handler_name    : SoundHandler
+        vendor_id       : [0][0][0][0]
+</system-out>
+	</testcase>
+	<testcase name="redesign_tests" classname="redesign_tests" time="15.0904" status="run">
+		<properties/>
+		<system-out>Input #0, flac, from 'D:/PC/Project/Qt/bilibili_mp3/build/tray-lifecycle-oQPJpX/test.flac':
+  Metadata:
+    encoder         : Lavf63.1.102
+  Duration: 00:00:20.00, start: 0.000000, bitrate: 126 kb/s
+  Stream #0:0: Audio: flac, 44100 Hz, mono, s16
+Input #0, flac, from 'D:/PC/Project/Qt/bilibili_mp3/build/tray-lifecycle-oQPJpX/test.flac':
+  Metadata:
+    encoder         : Lavf63.1.102
+  Duration: 00:00:20.00, start: 0.000000, bitrate: 126 kb/s
+  Stream #0:0: Audio: flac, 44100 Hz, mono, s16
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'D:/PC/Project/Qt/bilibili_mp3/build/delete-related-mqZFgo/8f6219ba-f27e-4257-bbd2-e61e7887358d.m4a':
+  Metadata:
+    major_brand     : M4A 
+    minor_version   : 512
+    compatible_brands: M4A isomiso2
+    encoder         : Lavf63.1.102
+  Duration: 00:00:06.00, start: 0.000000, bitrate: 72 kb/s
+  Stream #0:0[0x1](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 69 kb/s (default)
+      Metadata:
+        handler_name    : SoundHandler
+        vendor_id       : [0][0][0][...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="lyric_workflow_tests" classname="lyric_workflow_tests" time="36.2429" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+</testsuite>

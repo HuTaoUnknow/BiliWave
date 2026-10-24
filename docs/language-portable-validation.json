@@ -1,0 +1,136 @@
+{
+  "ru": {
+    "text": "Привет, мир!\nВсё начинается с мечты.",
+    "events": [
+      {
+        "start": 0.0,
+        "end": 2.0,
+        "text": "Привет, мир!",
+        "confidence": 0.9621555954217911,
+        "representative_time": 1.0,
+        "merged_segments": 1
+      },
+      {
+        "start": 3.0,
+        "end": 5.0,
+        "text": "Всё начинается с мечты.",
+        "confidence": 0.9832388784574426,
+        "representative_time": 4.0,
+        "merged_segments": 1
+      }
+    ],
+    "lrc": "[00:00.00]Привет, мир!\n[00:02.00]\n[00:03.00]Всё начинается с мечты.\n[00:05.00]",
+    "interval": 0.5,
+    "stats": {
+      "sampled_frames": 12,
+      "visual_segments": 4,
+      "ocr_calls": 2,
+      "output_lines": 2,
+      "init_seconds": 1.094,
+      "ocr_seconds": 3.224,
+      "elapsed_seconds": 4.641
+    },
+    "backend": {
+      "provider": "DmlExecutionProvider",
+      "adapter": {
+        "id": 0,
+        "name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+        "vendor": 4318,
+        "memory_bytes": 6285164544
+      },
+      "runtime_version": "1.24.4",
+      "sessions": [
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      ],
+      "ocr_language": "ru",
+      "language_name": "俄语",
+      "recognition_model": "D:\\PC\\Project\\Qt\\bilibili_mp3\\release\\models\\ocr\\cyrillic_PP-OCRv5_rec_mobile.onnx",
+      "label": "GPU · NVIDIA GeForce RTX 3060 Laptop GPU"
+    },
+    "change_threshold": 0.22,
+    "text_similarity": 0.94,
+    "warnings": [
+      "按画面变化分段并取中间帧；时间精度受 0.5 秒采样影响。请使用同源视频并试听。"
+    ],
+    "source": "视频字幕 OCR · 俄语 · 中间帧识别与相似句合并",
+    "ok": true
+  },
+  "it": {
+    "text": "È già una bella città.\nL'amore è qui con noi.",
+    "events": [
+      {
+        "start": 0.0,
+        "end": 2.0,
+        "text": "È già una bella città.",
+        "confidence": 0.9995803236961365,
+        "representative_time": 1.0,
+        "merged_segments": 1
+      },
+      {
+        "start": 3.0,
+        "end": 5.0,
+        "text": "L'amore è qui con noi.",
+        "confidence": 0.9858619814569299,
+        "representative_time": 4.0,
+        "merged_segments": 1
+      }
+    ],
+    "lrc": "[00:00.00]È già una bella città.\n[00:02.00]\n[00:03.00]L'amore è qui con noi.\n[00:05.00]",
+    "interval": 0.5,
+    "stats": {
+      "sampled_frames": 12,
+      "visual_segments": 4,
+      "ocr_calls": 2,
+      "output_lines": 2,
+      "init_seconds": 0.912,
+      "ocr_seconds": 1.64,
+      "elapsed_seconds": 2.679
+    },
+    "backend": {
+      "provider": "DmlExecutionProvider",
+      "adapter": {
+        "id": 0,
+        "name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+        "vendor": 4318,
+        "memory_bytes": 6285164544
+      },
+      "runtime_version": "1.24.4",
+      "sessions": [
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      ],
+      "ocr_language": "it",
+      "language_name": "意大利语",
+      "recognition_model": "D:\\PC\\Project\\Qt\\bilibili_mp3\\release\\models\\ocr\\latin_PP-OCRv5_rec_mobile.onnx",
+      "label": "GPU · NVIDIA GeForce RTX 3060 Laptop GPU"
+    },
+    "change_threshold": 0.22,
+    "text_similarity": 0.94,
+    "warnings": [
+      "按画面变化分段并取中间帧；时间精度受 0.5 秒采样影响。请使用同源视频并试听。"
+    ],
+    "source": "视频字幕 OCR · 意大利语 · 中间帧识别与相似句合并",
+    "ok": true
+  }
+}

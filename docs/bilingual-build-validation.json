@@ -1,0 +1,10 @@
+{
+  "qt_suites": 4,
+  "qt_failures": 0,
+  "python_worker_tests": 15,
+  "bilingual_ocr_cases": 6,
+  "release_gpu_bilingual_sessions": 4,
+  "debug_startup_exit": 0,
+  "release_startup_exit": 0,
+  "release_sha256": "0706c46a9747ad453cf92c39f28680f7661913efdf90b92bb261b0347b88aadf"
+}

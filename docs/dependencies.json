@@ -1,0 +1,74 @@
+{
+  "recordedAt": "2026-10-21T01:16:40.6105196+08:00",
+  "verifiedArchives": [
+    {
+      "verification": "Publisher SHA2-256SUMS",
+      "version": "2026.08.19",
+      "component": "yt-dlp",
+      "sha256": "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a",
+      "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp.exe"
+    },
+    {
+      "verification": "Publisher GitHub release asset SHA256",
+      "version": "9.0.2",
+      "component": "FFmpeg",
+      "sha256": "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba",
+      "url": "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip"
+    },
+    {
+      "verification": "Hugging Face LFS SHA256",
+      "component": "Whisper small",
+      "sha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
+    },
+    {
+      "verification": "Recorded local SHA256 of HTTPS tag archive",
+      "version": "v1.9.5",
+      "component": "whisper.cpp source",
+      "sha256": "7a7a73071939f16bc028ad2f713f16f26e37afb6cc155d0f19e3d65705d2b1d9",
+      "url": "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.9.5.zip"
+    }
+  ],
+  "files": [
+    {
+      "sha256": "3256173f3f8bffd7df12227c68adf68025edb1832273a9530688a7bb1ed8edec",
+      "file": "tools/ffmpeg.exe",
+      "bytes": 105423872
+    },
+    {
+      "sha256": "f0d36ecbbdd3bcfac3efa078c96c7271c2e68b3810595552ac3b7f17e9a65c52",
+      "file": "tools/ffprobe.exe",
+      "bytes": 105221120
+    },
+    {
+      "sha256": "5e27589147caa6d7a30f4cc058a14c455dc62233901ffff9a1797ede425e9f86",
+      "file": "tools/libgcc_s_seh-1.dll",
+      "bytes": 109056
+    },
+    {
+      "sha256": "8013488c5528bad7966ca07f3ea2e7a9b743cacb258fe76b46a326f821cc83b0",
+      "file": "tools/libstdc++-6.dll",
+      "bytes": 2243072
+    },
+    {
+      "sha256": "c7c7dced65fff71c7bb61f80c771c562f533d26d72722d9d6091129a3b03d5ce",
+      "file": "tools/libwinpthread-1.dll",
+      "bytes": 53248
+    },
+    {
+      "sha256": "972e63aae941e128b6874efa69d976b192221221af701ec62c6bfaac89a9e84e",
+      "file": "tools/whisper-cli.exe",
+      "bytes": 3181532
+    },
+    {
+      "sha256": "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a",
+      "file": "tools/yt-dlp.exe",
+      "bytes": 17840399
+    },
+    {
+      "sha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+      "file": "models/ggml-small.bin",
+      "bytes": 487601967
+    }
+  ]
+}

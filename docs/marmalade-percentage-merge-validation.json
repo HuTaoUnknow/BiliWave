@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-23",
+  "source": "https://www.bilibili.com/video/BV1AG411v7HA",
+  "text_similarity": 0.6,
+  "confidence_override": false,
+  "partial_character_exception": false,
+  "before_cues": 57,
+  "after_cues": 41,
+  "before_excerpt_times": [
+    123.0,
+    123.5,
+    126.5,
+    127.0,
+    129.5,
+    146.5,
+    147.0,
+    153.0,
+    153.5
+  ],
+  "after_excerpt_times": [
+    123.0,
+    126.5,
+    129.5,
+    146.5
+  ],
+  "blank_boundary_retained": true,
+  "middle_frame_selection_retained": true,
+  "test_replay_backend": "DmlExecutionProvider",
+  "python_tests_passed": 20,
+  "lyric_workflow_tests_passed": 17,
+  "deployed_worker_sha256": "439A2891A606AC5DCB26A3CF4D053D54B36513BBE6DE05A038FF54B93C223DF1"
+}

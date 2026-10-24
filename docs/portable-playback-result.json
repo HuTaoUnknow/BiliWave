@@ -1,0 +1,24 @@
+{
+    "decoded": true,
+    "duration": 8000,
+    "import_status": "完成 · FLAC · 原轨已保留",
+    "seeked": true,
+    "track": {
+        "artist": "BiliWave",
+        "bitrate": 0,
+        "channels": 1,
+        "codec": "flac",
+        "created": "2026-10-20 17:16:43",
+        "duration": 8000,
+        "id": 1,
+        "lrc": "",
+        "lyric_offset": 0,
+        "lyric_source": "",
+        "original": "D:/PC/Project/Qt/bilibili_mp3/.cache/smoke/tone.flac",
+        "path": "D:/PC/Project/Qt/bilibili_mp3/.cache/smoke/tone.flac",
+        "sample_rate": 48000,
+        "source": "",
+        "title": "听见微光 · 本地音轨测试"
+    },
+    "tracks": 1
+}

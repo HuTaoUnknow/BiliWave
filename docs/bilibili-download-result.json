@@ -1,0 +1,24 @@
+{
+    "decoded": true,
+    "duration": 554117,
+    "import_status": "完成 · AAC · 原轨已保留",
+    "seeked": true,
+    "track": {
+        "artist": "",
+        "bitrate": 190182,
+        "channels": 2,
+        "codec": "aac",
+        "created": "2026-10-20 14:50:13",
+        "duration": 554117,
+        "id": 1,
+        "lrc": "",
+        "lyric_offset": 0,
+        "lyric_source": "",
+        "original": "D:/PC/Project/Qt/bilibili_mp3/.cache/bili-app/data/media/12b34967-dbfd-445e-8af8-bbe59af474e7.source.m4s",
+        "path": "D:/PC/Project/Qt/bilibili_mp3/.cache/bili-app/data/media/12b34967-dbfd-445e-8af8-bbe59af474e7.m4a",
+        "sample_rate": 44100,
+        "source": "https://www.bilibili.com/video/BV13x41117TL",
+        "title": "阿滴英文｜英文歌分享#6 \"Closer"
+    },
+    "tracks": 1
+}

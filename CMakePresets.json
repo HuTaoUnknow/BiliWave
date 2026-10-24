@@ -1,0 +1,22 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "local-qt611-mingw",
+      "displayName": "Qt 6.11.1 / MinGW 13.1 (current machine)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_PREFIX_PATH": "D:/PC/EXE/QtCreator/6.11.1/mingw_64",
+        "CMAKE_MAKE_PROGRAM": "D:/PC/EXE/QtCreator/Tools/Ninja/ninja.exe",
+        "CMAKE_CXX_COMPILER": "D:/PC/EXE/QtCreator/Tools/mingw1310_64/bin/g++.exe"
+      },
+      "environment": {
+        "PATH": "D:/PC/EXE/QtCreator/6.11.1/mingw_64/bin;D:/PC/EXE/QtCreator/Tools/mingw1310_64/bin;$penv{PATH}"
+      }
+    }
+  ],
+  "buildPresets": [{"name": "release", "configurePreset": "local-qt611-mingw", "jobs": 4}],
+  "testPresets": [{"name": "release", "configurePreset": "local-qt611-mingw", "output": {"outputOnFailure": true}}]
+}

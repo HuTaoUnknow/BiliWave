@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-24",
+  "feature": "自动消声",
+  "defaults": {
+    "reduction_percent": 70,
+    "onMicrophone": true,
+    "onSpeech": true,
+    "enabled": false,
+    "onOtherAudio": true
+  },
+  "reduction_range_percent": [
+    0,
+    100
+  ],
+  "speech_detection": {
+    "onset_ms": 120,
+    "hold_ms": 1200,
+    "window_ms": 20,
+    "threshold_rms": 0.0126,
+    "method": "Local microphone RMS gate; no recording or upload"
+  },
+  "open_microphone_detection": {
+    "thread": "COM MTA worker",
+    "poll_ms": 500,
+    "method": "Windows active capture sessions; current process excluded"
+  },
+  "fades_ms": {
+    "lower": 180,
+    "restore": 650
+  },
+  "validation": {
+    "ducking_cases_passed": 7,
+    "core_report": "build/core-results.txt",
+    "native_report": "build/ducking-native-results.txt",
+    "core_cases_passed": 7,
+    "native_hardware_cases_skipped": 1,
+    "targeted_ui_cases_passed": 4,
+    "ui_report": "build/ducking-ui-results.txt",
+    "lite_cases_passed": 1
+  },
+  "standalone_smoke": [
+    {
+      "edition": "release",
+      "exit_code": 0
+    },
+    {
+      "edition": "build-debug",
+      "exit_code": 0
+    },
+    {
+      "edition": "release-lite",
+      "exit_code": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "release/BiliWave.exe",
+      "bytes": 2340812,
+      "sha256": "ff10d6b6a0ef0637f39df6fac5c36cd5901d2c3510411d44505d29c04c00af35"
+    },
+    {
+      "file": "release-lite/BiliWave.exe",
+      "bytes": 2307495,
+      "sha256": "93e4bb9bf8b6b076354c8528a31751040a81b256071decdc622e748401347616"
+    },
+    {
+      "file": "build-debug/BiliWave.exe",
+      "bytes": 32815322,
+      "sha256": "55bab6bed4da909a0ce6e89ef07cdebb82215e25332fd6130088c9b31cadc162"
+    }
+  ],
+  "screenshot": "docs/screenshots/auto-ducking-settings.png",
+  "installer_rebuilt": true,
+  "version": "1.10.0",
+  "other_audio_detection": {
+    "method": "Windows per-session render peak; own PID excluded; muted and zero streams excluded",
+    "poll_ms": 100,
+    "peak_threshold": 0.001,
+    "hold_ms": 800,
+    "hardware_fixture_passed": true
+  }
+}

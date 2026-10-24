@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-22",
+  "real_song_cases": 3,
+  "manually_reviewed_caption_cues": 59,
+  "caption_reference_uncertainty_seconds": 0.125,
+  "independent_vocal_onset_ground_truth": false,
+  "python_tests_passed": 19,
+  "qt_suites_passed": 4,
+  "additional_lyric_workflow_run_passed": 17,
+  "online_qt_lookup_skipped": 1,
+  "baseline_and_tuned_analysis_audio_hashes_match": true,
+  "alignment_uses_machine_ocr_hints_not_manual_times": true,
+  "release_portable": {
+    "russian_gpu_ocr": {
+      "provider": "DmlExecutionProvider",
+      "cues": 30
+    },
+    "english_caption_guided_alignment": {
+      "cues": 12,
+      "max_difference_to_caption_seconds": 1.1749999999999972,
+      "fallback_lines": []
+    }
+  },
+  "debug_startup_exit": 0,
+  "release_startup_exit": 0,
+  "release_sha256": "F8F7167871B171FC8D2179ABC4403130CE75717743C3890C201BCC327C7B2454",
+  "tested_build_sha256": "F8F7167871B171FC8D2179ABC4403130CE75717743C3890C201BCC327C7B2454"
+}

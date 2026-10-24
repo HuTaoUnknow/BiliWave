@@ -1,0 +1,36 @@
+{
+  "release_sha256": "1B83CFC7AC9B2EB5CD36C99C7371581A620174CF8DE44ADBD8FA6E8725BD24EB",
+  "deployed_workers_sha256": {
+    "ocr_spacing.py": "BCB8A0C160E9AC987FE428AD5C94ECB9C0408F2D508825F3925217D8B91D89A8",
+    "ocr_backend.py": "326539E9BAACBC1164A3460233027C2CAAD48AAC4E0314B04D932828BCE56D62"
+  },
+  "range_percent": [
+    0,
+    100
+  ],
+  "python_tests_passed": 23,
+  "tested_build_sha256": "1B83CFC7AC9B2EB5CD36C99C7371581A620174CF8DE44ADBD8FA6E8725BD24EB",
+  "real_gpu_check": {
+    "scope": "current_frame",
+    "ocr_calls": 1,
+    "probability": 0.65,
+    "provider": "DmlExecutionProvider"
+  },
+  "debug_sha256": "B98413B60C3CC82AB35B22785C5F29EEF5662305517B0036E70E854332E5B618",
+  "ui_control": "空格出现概率",
+  "standalone_smoke": [
+    {
+      "exit_code": 0,
+      "flavor": "release"
+    },
+    {
+      "exit_code": 0,
+      "flavor": "build-debug"
+    }
+  ],
+  "default_percent": 50,
+  "default_preserves_model_output": true,
+  "targeted_workflow_cases_passed": 5,
+  "date": "2026-10-24",
+  "legacy_tasks_compatible": true
+}

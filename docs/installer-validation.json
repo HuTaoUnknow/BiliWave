@@ -1,0 +1,15 @@
+{
+  "version": "1.10.0",
+  "installer": "D:\\PC\\Project\\Qt\\bilibili_mp3\\dist\\BiliWave-1.10.0-Windows-x64-Setup.exe",
+  "sha256": "f2da953ccce8aa55f978f71966b3f0451cf90588148c0a5c5333618d8edf2de3",
+  "installed": true,
+  "application_startup": true,
+  "system_only_path": true,
+  "model_hashes_verified": true,
+  "bundled_runtime_imports": true,
+  "subtitle_ocr": true,
+  "forced_alignment": true,
+  "audio_analysis_removed": true,
+  "uninstall": true,
+  "user_data_preserved": true
+}

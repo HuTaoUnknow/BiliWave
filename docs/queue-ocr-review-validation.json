@@ -1,0 +1,11 @@
+{
+  "qt_suites": 4,
+  "qt_failures": 0,
+  "python_worker_tests": 16,
+  "bilingual_ocr_cases": 6,
+  "default_text_similarity": 0.6,
+  "visual_change_threshold": 0.22,
+  "debug_startup_exit": 0,
+  "release_startup_exit": 0,
+  "release_sha256": "e9aae71ff1a4b1fb5b3e1f207721b549f20daba58bc3b2d8d7546986b9d156d5"
+}
