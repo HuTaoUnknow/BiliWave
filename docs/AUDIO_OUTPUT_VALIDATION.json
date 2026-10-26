@@ -1,0 +1,26 @@
+{
+  "checked_at": "2026-10-26T15:00:42.969556+08:00",
+  "change": "system default and user-selected audio output routing",
+  "tests": {
+    "core": 12,
+    "screen_output_settings": 1,
+    "lite_output_settings": 1
+  },
+  "validated": [
+    "hotplug route selection policy",
+    "missing pinned device fallback and reconnection policy",
+    "selection persistence across restart",
+    "actual available output selection",
+    "paused position unchanged after output reconnection",
+    "playing continues after output reconnection",
+    "queue, volume, ducking gain and mute unchanged"
+  ],
+  "physical_headset_unplug_replug": "not performed by automation",
+  "deployed_sha256": {
+    "build-debug/BiliWave.exe": "6a0103adb26f0398d76b59a40f0a2ebeb2f1aa533cc8b65cfaba55ae01097b6a",
+    "build/BiliWave.exe": "de15ea2c143897d47f7cd238c973972ec49f064edca7923915a93fa2f00a90cf",
+    "release-screen/BiliWave.exe": "de15ea2c143897d47f7cd238c973972ec49f064edca7923915a93fa2f00a90cf",
+    "build-lite/BiliWave.exe": "deddb8696c359eb0f4c94cc1c42df5c1644c1f8b9e9a25a6313c43f6b79c173b",
+    "release-lite/BiliWave.exe": "deddb8696c359eb0f4c94cc1c42df5c1644c1f8b9e9a25a6313c43f6b79c173b"
+  }
+}

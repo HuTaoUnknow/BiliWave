@@ -1,7 +1,9 @@
 ﻿param([string]$Installer = '')
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
-if (-not $Installer) { $Installer = Join-Path $project 'dist\BiliWave-Lite-1.11.0-Windows-x64-Setup.exe' }
+$appVersion = [regex]::Match((Get-Content -LiteralPath (Join-Path $project 'CMakeLists.txt') -Raw), 'project\(BiliWave VERSION ([0-9.]+)').Groups[1].Value
+if (-not $appVersion) { throw 'Application version was not found' }
+if (-not $Installer) { $Installer = Join-Path $project "dist\BiliWave-Lite-$appVersion-Windows-x64-Setup.exe" }
 $Installer = [IO.Path]::GetFullPath($Installer)
 $verificationRoot = Join-Path $project ('.cache\ivl110-' + [guid]::NewGuid().ToString('N').Substring(0,8))
 $destination = Join-Path $verificationRoot 'App'
@@ -40,7 +42,7 @@ Invoke-CheckedProcess (Join-Path $destination 'unins000.exe') @('/VERYSILENT','/
 if (Test-Path -LiteralPath $installedExe) { throw 'Uninstaller did not remove the installed executable.' }
 if (-not (Test-Path -LiteralPath $sentinel)) { throw 'Uninstaller removed user data.' }
 $report = [ordered]@{
-    version = '1.11.0'; edition = 'Lite'; installer = $Installer
+    version = $appVersion; edition = 'Lite'; installer = $Installer
     installer_bytes = (Get-Item -LiteralPath $Installer).Length; installed_bytes = $payloadBytes
     sha256 = (Get-FileHash -LiteralPath $Installer).Hash.ToLowerInvariant()
     installed = $true; application_startup = $true; system_only_path = $true; lyric_payload_absent = $true

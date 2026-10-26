@@ -196,6 +196,7 @@ class MainWindow : public QMainWindow {
     void discardDownload(QListWidgetItem *item);
     void commitLyricTrack(bool skipLyrics);
     void saveWorkbenchTrack();
+    void finishWorkbenchImport(qint64 id, const QString &message);
     bool rememberWorkbenchMetadata();
     void selectLyricTrack(qint64 id, bool match = false);
     void refreshLyricLibrary();
@@ -239,7 +240,7 @@ class MainWindow : public QMainWindow {
     PlaylistView *m_browsePlaylistCards;
     PlaybackQueueView *m_playbackQueue;
     QLineEdit *m_browseFilter;
-    QLabel *m_browseHeading, *m_browseSummary, *m_queueSummary, *m_queueEmpty;
+    QLabel *m_browseHeading, *m_browseSummary;
     qint64 m_browsePlaylist = 0;
     QLabel *m_pageTitle, *m_pageSubtitle, *m_playlistHeading, *m_playlistSummary;
     QTreeWidget *m_results, *m_candidates;

@@ -213,6 +213,7 @@ QString colorSwatchStyle(const QColor &color) {
 MainWindow::MainWindow(Library *l, QSettings *s, QWidget *p)
     : QMainWindow(p), m_library(l), m_settings(s), m_player(l), m_ducking(&m_player, s, this), m_import(l, s),
       m_lyrics(l, s), m_exports(l, s), m_lookup(s), m_stream(s) {
+    m_player.setOutputDeviceId(QByteArray::fromBase64(s->value("audio/outputDevice").toByteArray()));
     if (!lyricFeaturesEnabled()) {
         s->setValue("lyrics/autoFetch", false);
         s->setValue("lyrics/matchAfterDownload", false);
@@ -494,7 +495,7 @@ MainWindow::MainWindow(Library *l, QSettings *s, QWidget *p)
             !Lrc::parse(m_library->workbenchTrack(id).value("lrc").toString()).isEmpty()) {
             m_pendingCommit = 0;
             if (m_library->saveWorkbench(id))
-                m_importStatus->setText("已导入乐库");
+                finishWorkbenchImport(id, "已导入乐库");
         }
         if (id == m_lyricTrack)
             refreshLyricWorkbench();
@@ -993,9 +994,9 @@ QWidget *MainWindow::createSearchPage() {
     auto downloadLayout = new QVBoxLayout(downloadPanel);
     downloadLayout->setContentsMargins(16, 0, 0, 0);
     auto jobs = new QHBoxLayout;
-    jobs->addWidget(label("下载任务", "section"));
+    jobs->addWidget(label("收录队列", "section"));
     jobs->addStretch();
-    auto retry = action("重试"), cancel = action("取消下载");
+    auto retry = action("重试下载"), cancel = action("取消下载");
     jobs->addWidget(retry);
     jobs->addWidget(cancel);
     downloadLayout->addLayout(jobs);
@@ -1007,8 +1008,8 @@ QWidget *MainWindow::createSearchPage() {
     connect(m_jobs, &QListWidget::itemDoubleClicked, this, &MainWindow::openDownload);
     if (lyricFeaturesEnabled()) {
         for (const auto &track : m_library->stagedTracks())
-            if (track.value("storage").toString() != "url")
-                completeDownload("saved-" + track.value("id").toString(), track.value("id").toLongLong());
+            completeDownload((track.value("storage").toString() == "url" ? "url-" : "saved-") +
+                                 track.value("id").toString(), track.value("id").toLongLong());
     }
     auto searchSplit = new QSplitter;
     searchSplit->setObjectName("searchDownloadsSplit");
@@ -1145,19 +1146,21 @@ void MainWindow::downloadResults(bool all) {
     applyLyricSource();
     for (auto item : items)
         m_import.enqueue(item->data(0, Qt::UserRole).toMap().value("url").toString(),
-                         recognitionFeaturesEnabled());
+                         lyricFeaturesEnabled());
 }
 void MainWindow::completeDownload(const QString &taskId, qint64 trackId) {
     if (!lyricFeaturesEnabled())
         return;
     const auto track = m_library->track(trackId);
-    if (track.isEmpty() || track.value("storage").toString() == "url")
+    if (track.isEmpty())
         return;
     if (!track.value("staged").toBool()) {
         delete m_jobItems.take(taskId);
         return;
     }
-    updateDownloadTask(taskId, track.value("title").toString(), "下载完成", trackId);
+    const bool url = track.value("storage").toString() == "url";
+    updateDownloadTask(taskId, track.value("title").toString() + (url ? " [URL]" : ""),
+                       url ? "URL 待收录" : "下载完成", trackId);
 }
 void MainWindow::updateDownloadTask(const QString &taskId, const QString &title, const QString &state,
                                     qint64 trackId) {
@@ -1220,8 +1223,8 @@ void MainWindow::updateDownloadTask(const QString &taskId, const QString &title,
                     const auto id = current ? current->data(Qt::UserRole).toLongLong() : 0;
                     if (id && m_pendingCommit == id)
                         m_pendingCommit = 0;
-                    if (id && m_library->commitTrack(id))
-                        m_importStatus->setText("已导入乐库");
+                    if (id && m_library->saveWorkbench(id))
+                        finishWorkbenchImport(id, "已导入乐库");
                 });
             else
                 connect(button, &QPushButton::clicked, this,
@@ -1300,7 +1303,7 @@ void MainWindow::openDownload(QListWidgetItem *item) {
         return;
     const auto id = item->data(Qt::UserRole).toLongLong();
     const auto track = m_library->track(id);
-    if (!id || track.isEmpty() || track.value("storage").toString() == "url")
+    if (!id || track.isEmpty())
         return;
     m_workbenchTracks.insert(id);
     refreshLyricLibrary();
@@ -1310,10 +1313,15 @@ void MainWindow::openDownload(QListWidgetItem *item) {
 void MainWindow::collectUrls() {
     const auto items = m_results->selectedItems();
     int count = 0;
-    for (auto item : items)
-        if (m_library->addUrl(item->data(0, Qt::UserRole).toMap()))
+    for (auto item : items) {
+        const auto id = m_library->addUrl(item->data(0, Qt::UserRole).toMap(), true);
+        if (id && m_library->track(id).value("staged").toBool()) {
+            completeDownload("url-" + QString::number(id), id);
             ++count;
-    m_resultStatus->setText(count ? QString("已收录 %1 首 URL 歌曲").arg(count) : "请选择要收录的歌曲");
+        }
+    }
+    m_resultStatus->setText(count ? QString("已加入收录队列 %1 首 URL 歌曲").arg(count)
+                                 : "请选择尚未收录的歌曲；已在乐库的 URL 可右击载入工作台。");
 }
 void MainWindow::commitLyricTrack(bool skipLyrics) {
     if (!lyricFeaturesEnabled())
@@ -1322,12 +1330,14 @@ void MainWindow::commitLyricTrack(bool skipLyrics) {
         m_lyricStatus->setText("请选择歌曲源");
         return;
     }
+    const auto id = m_lyricTrack;
+    m_pendingCommit = 0;
     if (!rememberWorkbenchMetadata())
         return;
     if (skipLyrics || !Lrc::parse(m_library->workbenchTrack(m_lyricTrack).value("lrc").toString()).isEmpty()) {
         m_pendingCommit = 0;
-        if (m_library->saveWorkbench(m_lyricTrack, !skipLyrics))
-            m_importStatus->setText("已导入乐库");
+        if (m_library->saveWorkbench(id, !skipLyrics))
+            finishWorkbenchImport(id, "已导入乐库");
     } else {
         m_pendingCommit = m_lyricTrack;
         applyLyricSource();
@@ -1357,12 +1367,30 @@ void MainWindow::saveWorkbenchTrack() {
         m_lyricStatus->setText("请填写歌曲名称。");
         return;
     }
+    finishWorkbenchImport(id, "已保存到乐库");
+}
+void MainWindow::finishWorkbenchImport(qint64 id, const QString &message) {
     m_workbenchTracks.remove(id);
+    m_candidateCache.remove(id);
+    m_candidateQueries.remove(id);
+    if (m_pendingCommit == id)
+        m_pendingCommit = 0;
+    if (m_previewTrack == id) {
+        m_previewTrack = 0;
+        m_lyricFingerprint.clear();
+        updateCurrent();
+    }
+    if (m_lyricTrack != id) {
+        refreshLyricLibrary();
+        m_importStatus->setText(message);
+        return;
+    }
+    m_lyrics.cancel();
     m_workspaceFingerprint.clear();
     m_lyricTrack = 0;
     refreshLyricLibrary();
     selectLyricTrack(0, false);
-    m_importStatus->setText("已保存到乐库");
+    m_importStatus->setText(message);
 }
 bool MainWindow::rememberWorkbenchMetadata() {
     if (!m_lyricTrack || m_matchTitle->text().trimmed().isEmpty()) {
@@ -2086,6 +2114,58 @@ QWidget *MainWindow::createSettingsPage() {
         applyTheme(themeChoices->checkedButton()->property("value").toString());
     });
     generalLayout->addLayout(appearanceForm);
+    auto audioOutput = new QWidget;
+    audioOutput->setMaximumWidth(820);
+    auto audioForm = new QFormLayout(audioOutput);
+    audioForm->setContentsMargins(0, 0, 0, 0);
+    auto deviceRow = new QHBoxLayout;
+    auto outputs = new QComboBox;
+    outputs->setObjectName("settingsAudioOutput");
+    outputs->setMinimumWidth(220);
+    outputs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    outputs->setToolTip("默认跟随系统输出；也可固定耳机或扬声器。设备断开时临时跟随系统，重新接入后自动恢复。");
+    outputs->installEventFilter(this);
+    auto detect = action("重新检测", "detectAudioOutputs");
+    deviceRow->addWidget(outputs, 1);
+    deviceRow->addWidget(detect);
+    audioForm->addRow("音频输出", deviceRow);
+    auto outputStatus = label({}, "muted");
+    outputStatus->setObjectName("audioOutputStatus");
+    outputStatus->setWordWrap(true);
+    audioForm->addRow(QString(), outputStatus);
+    auto refreshOutputs = [this, outputs, outputStatus] {
+        const QSignalBlocker guard(outputs);
+        outputs->clear();
+        const auto preferred = m_player.outputDeviceId();
+        const auto system = QMediaDevices::defaultAudioOutput();
+        outputs->addItem(system.isNull() ? "跟随系统默认（暂无输出设备）"
+                                        : "跟随系统默认 · " + system.description(), QByteArray());
+        const auto devices = QMediaDevices::audioOutputs();
+        for (const auto &device : devices)
+            outputs->addItem(device.description() + (device.id() == system.id() ? "（系统默认）" : ""),
+                             device.id());
+        int selected = outputs->findData(preferred);
+        if (selected < 0) {
+            outputs->addItem(m_settings->value("audio/outputDeviceName", "已选择的设备").toString() +
+                                 "（未连接，暂用系统默认）", preferred);
+            selected = outputs->count() - 1;
+        }
+        outputs->setCurrentIndex(selected);
+        const auto actual = m_player.audio()->device();
+        outputStatus->setText(actual.isNull() ? "未检测到音频输出设备，接入后自动恢复。"
+                                              : "当前输出：" + actual.description());
+    };
+    connect(&m_player, &Player::audioOutputsChanged, page, refreshOutputs);
+    connect(outputs, &QComboBox::activated, page, [this, outputs](int index) {
+        const auto id = outputs->itemData(index).toByteArray();
+        m_settings->setValue("audio/outputDevice", id.toBase64());
+        m_settings->setValue("audio/outputDeviceName", outputs->itemText(index));
+        m_settings->sync();
+        m_player.setOutputDeviceId(id);
+    });
+    connect(detect, &QPushButton::clicked, page, [this] { m_player.refreshAudioOutputs(true); });
+    refreshOutputs();
+    generalLayout->addWidget(audioOutput);
     auto closeToTray = new QCheckBox("关闭主窗口时最小化到托盘");
     closeToTray->setObjectName("settingsCloseToTray");
     closeToTray->setChecked(m_settings->value("application/closeToTray", true).toBool());

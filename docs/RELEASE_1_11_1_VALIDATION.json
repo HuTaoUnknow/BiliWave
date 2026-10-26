@@ -1,0 +1,74 @@
+{
+  "version": "1.11.1",
+  "checked_at": "2026-10-26T17:01:18.227716+08:00",
+  "release": "https://github.com/HuTaoUnknow/BiliWave/releases/tag/v1.11.1",
+  "artifacts": [
+    {
+      "file": "BiliWave-1.11.1-Windows-x64-Setup.exe",
+      "bytes": 221905563,
+      "MiB": 211.63,
+      "sha256": "6d5db82c4d927219960657db276cc77af66807d5680e34b22ea0bab3c0ed6fa3"
+    },
+    {
+      "file": "BiliWave-Lite-1.11.1-Windows-x64-Setup.exe",
+      "bytes": 105510715,
+      "MiB": 100.62,
+      "sha256": "9840eb84bf63e2b2626f2162c1827826dc175c0964a089c2510b7359146b4b00"
+    }
+  ],
+  "installer_checks": {
+    "screen": {
+      "version": "1.11.1",
+      "sha256": "6d5db82c4d927219960657db276cc77af66807d5680e34b22ea0bab3c0ed6fa3",
+      "installer_bytes": 221905563,
+      "installed_bytes": 699507403,
+      "installed": true,
+      "application_startup": true,
+      "system_only_path": true,
+      "alignment_payload_absent": true,
+      "bundled_runtime_imports": true,
+      "subtitle_ocr": true,
+      "audio_analysis_removed": true,
+      "uninstall": true,
+      "user_data_preserved": true
+    },
+    "lite": {
+      "version": "1.11.1",
+      "edition": "Lite",
+      "installer_bytes": 105510715,
+      "installed_bytes": 324992139,
+      "sha256": "9840eb84bf63e2b2626f2162c1827826dc175c0964a089c2510b7359146b4b00",
+      "installed": true,
+      "application_startup": true,
+      "system_only_path": true,
+      "lyric_payload_absent": true,
+      "direct_library_import": true,
+      "decoded": true,
+      "seeked": true,
+      "uninstall": true,
+      "user_data_preserved": true
+    }
+  },
+  "functional_regression": {
+    "same_implementation_before_version_bump": true,
+    "qt_test_totals_including_setup_cleanup": {
+      ".cache/collection-full-ui.txt": 24,
+      ".cache/collection-lite-ui.txt": 4,
+      ".cache/collection-workbench-full.txt": 6,
+      ".cache/collection-workbench-lite.txt": 6,
+      ".cache/audio-output-core.txt": 12
+    },
+    "failures": 0,
+    "physical_headset_unplug_replug": "not performed by automation"
+  },
+  "changes": [
+    "system default and manually selected audio outputs",
+    "stable full-height playback queue without descriptive labels",
+    "shared URL/download collection queue with library and workbench paths",
+    "clear active workbench only after successful import/save"
+  ],
+  "release_exe_sha256": {
+    "release-screen/BiliWave.exe": "bafd10cc840b2ae0e564bb74299f68011e6cda5e571440e35f905da402f529c9",
+    "release-lite/BiliWave.exe": "7a30b91e11a16425e0f630d8fcab7d39eec8192eb45d06c0b56bbff49e86c634"
+  }
+}

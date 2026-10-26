@@ -8,6 +8,17 @@
 class CoreTests : public QObject {
     Q_OBJECT
   private slots:
+    void audioOutputPolicyTracksHotplugAndSystemDefault() {
+        const QByteArray speakers("speakers"), headset("headset"), hdmi("hdmi");
+        QCOMPARE(Player::chooseAudioOutput({}, {speakers, headset}, speakers), speakers);
+        QCOMPARE(Player::chooseAudioOutput({}, {speakers, headset}, headset), headset);
+        // Pinning survives a different system default and temporary removal.
+        QCOMPARE(Player::chooseAudioOutput(headset, {speakers, headset, hdmi}, hdmi), headset);
+        QCOMPARE(Player::chooseAudioOutput(headset, {speakers, hdmi}, speakers), speakers);
+        QCOMPARE(Player::chooseAudioOutput(headset, {}, {}), QByteArray());
+        QCOMPARE(Player::chooseAudioOutput(headset, {speakers, headset}, speakers), headset);
+        QCOMPARE(Player::chooseAudioOutput({}, {speakers}, {}), speakers);
+    }
     void traditionalConversionCoversHouAndPhraseAmbiguity() {
         QCOMPARE(Lrc::simplifiedChinese("我在門後 假裝你人還沒走"), QString("我在门后 假装你人还没走"));
         QCOMPARE(Lrc::simplifiedChinese("後來 皇后 之後 後面"), QString("后来 皇后 之后 后面"));

@@ -4,6 +4,8 @@
 Player::Player(Library *l, QObject *p) : QObject(p), m_library(l) {
     m_media.setAudioOutput(&m_audio);
     m_audio.setVolume(.75);
+    connect(&m_devices, &QMediaDevices::audioOutputsChanged, this, [this] { refreshAudioOutputs(); });
+    refreshAudioOutputs();
     connect(&m_media, &QMediaPlayer::mediaStatusChanged, this, [this](auto status) {
         if (status == QMediaPlayer::EndOfMedia)
             next(true);
@@ -28,6 +30,44 @@ Player::Player(Library *l, QObject *p) : QObject(p), m_library(l) {
         prepareShuffle();
         emit queueChanged();
     });
+}
+QByteArray Player::chooseAudioOutput(const QByteArray &preferred, const QList<QByteArray> &available,
+                                   const QByteArray &systemDefault) {
+    if (!preferred.isEmpty() && available.contains(preferred))
+        return preferred;
+    if (available.contains(systemDefault))
+        return systemDefault;
+    return available.isEmpty() ? QByteArray() : available.first();
+}
+void Player::setOutputDeviceId(const QByteArray &id) {
+    if (m_outputDeviceId == id)
+        return;
+    m_outputDeviceId = id;
+    refreshAudioOutputs();
+}
+void Player::refreshAudioOutputs(bool reconnect) {
+    const auto devices = QMediaDevices::audioOutputs();
+    QList<QByteArray> ids;
+    for (const auto &device : devices)
+        ids << device.id();
+    const auto id = chooseAudioOutput(m_outputDeviceId, ids, QMediaDevices::defaultAudioOutput().id());
+    QAudioDevice selected;
+    for (const auto &device : devices)
+        if (device.id() == id) {
+            selected = device;
+            break;
+        }
+    // Rebind only the output, keeping source, queue, playback state and time intact.
+    // A missing pinned headset falls back without discarding its stored ID, so
+    // reconnecting it restores the user's selection automatically.
+    if (reconnect)
+        m_media.setAudioOutput(nullptr);
+    if (m_audio.device() != selected)
+        m_audio.setDevice(selected);
+    if (reconnect)
+        m_media.setAudioOutput(&m_audio);
+    m_audio.setVolume(m_volume * m_duckingGain);
+    emit audioOutputsChanged();
 }
 void Player::setVolume(float volume) {
     volume = qBound(0.f, volume, 1.f);

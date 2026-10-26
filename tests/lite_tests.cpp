@@ -1,4 +1,5 @@
 #include "lyricworkflow.h"
+#include "audio_output_checks.h"
 #include "window.h"
 #include <QDialogButtonBox>
 #include <QDir>
@@ -12,6 +13,9 @@
 class LiteTests : public QObject {
     Q_OBJECT
   private slots:
+    void audioOutputSettingsPreservePlaybackAndSelection() {
+        checkAudioOutputSettingsAndPlayback();
+    }
     void onlineOnlyWorkbenchAndNormalMusicFlow() {
         QVERIFY(lyricFeaturesEnabled());
         QVERIFY(!recognitionFeaturesEnabled());
@@ -57,6 +61,10 @@ class LiteTests : public QObject {
                           results->visualItemRect(results->topLevelItem(0)).center());
         QVERIFY(library.stagedTracks().isEmpty());
         window.findChild<QPushButton *>("collectSearchUrl")->click();
+        auto jobs = window.findChild<QListWidget *>("downloadJobs");
+        QCOMPARE(jobs->count(), 1);
+        QVERIFY(library.tracks().isEmpty());
+        jobs->itemWidget(jobs->item(0))->findChild<QPushButton *>("collectDownloadedTrack")->click();
         QCOMPARE(library.tracks().size(), 1);
         const auto id = library.tracks().first().value("id").toLongLong();
         auto playlist = library.createPlaylist("精简版歌单");

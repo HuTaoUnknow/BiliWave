@@ -1,4 +1,5 @@
 #include "desktopintegration.h"
+#include "audio_output_checks.h"
 #include "lyricworkflow.h"
 #include "theme.h"
 #include "window.h"
@@ -68,6 +69,9 @@ class RedesignTests : public QObject {
         }
     }
   private slots:
+    void audioOutputSettingsPreservePlaybackAndSelection() {
+        checkAudioOutputSettingsAndPlayback();
+    }
     void onlineResultsAndSimplificationSetting() {
         QTemporaryDir dir(QDir::current().filePath("online-results-ui-XXXXXX"));
         Library library(dir.filePath("data"));
@@ -1008,7 +1012,7 @@ class RedesignTests : public QObject {
         QCOMPARE(selector->currentData().toLongLong(), second);
         library.setWorkbenchLyrics(second, "[00:00.00]Привет, мир!\n[00:00.00]你好，世界！\n[00:04.00]", "测试");
         QCOMPARE(window.findChild<QListWidget *>("timedLyricPreview")->count(), 2);
-        window.findChild<QPushButton *>("commitWithoutLyrics")->click();
+        window.findChild<QPushButton *>("commitWithLyrics")->click();
         QCOMPARE(window.findChild<QLabel *>("libraryImportStatus")->text(), QString("已导入乐库"));
         for (auto button : window.findChildren<QPushButton *>())
             QVERIFY(button->text() != "取消匹配");
@@ -1016,7 +1020,8 @@ class RedesignTests : public QObject {
         auto match = window.findChild<QPushButton *>("matchLyrics");
         auto trial = window.findChild<QPushButton *>("trialLyrics");
         QCOMPARE(match->mapTo(&window, QPoint()).y(), trial->mapTo(&window, QPoint()).y());
-        QCOMPARE(jobs->count(), 1);
+        QCOMPARE(jobs->count(), 2);
+        QCOMPARE(selector->currentData().toLongLong(), 0);
         window.navigate(4);
         window.findChild<QSlider *>("settingsLyricOpacity")->setValue(80);
         window.findChild<QSlider *>("settingsLyricSecondaryOpacity")->setValue(30);
@@ -1094,8 +1099,11 @@ class RedesignTests : public QObject {
                            results->visualItemRect(results->topLevelItem(0)).center());
         QVERIFY(prompted);
         QCOMPARE(results->topLevelItemCount(), 1);
-        QCOMPARE(library.tracks().size(), 1);
         auto jobs = window.findChild<QListWidget *>("downloadJobs");
+        QCOMPARE(library.tracks().size(), 0);
+        QCOMPARE(jobs->count(), 1);
+        jobs->itemWidget(jobs->item(0))->findChild<QPushButton *>("collectDownloadedTrack")->click();
+        QCOMPARE(library.tracks().size(), 1);
         window.imports()->status("done", "已完成", "下载中");
         QCOMPARE(jobs->count(), 1);
         window.imports()->status("done", "已完成", "完成 · FLAC · 原轨已保留");
@@ -1557,8 +1565,11 @@ class RedesignTests : public QObject {
         QCOMPARE(library.tracks().size(), 4);
         QVERIFY(library.stagedTracks().isEmpty());
         window.findChild<QPushButton *>("collectSearchUrl")->click();
+        auto collection = window.findChild<QListWidget *>("downloadJobs");
+        collection->itemWidget(collection->item(0))
+            ->findChild<QPushButton *>("collectDownloadedTrack")->click();
         QCOMPARE(library.tracks().size(), 5);
-        QCOMPARE(selector->currentData().toLongLong(), draft);
+        QCOMPARE(selector->currentData().toLongLong(), 0);
         QVERIFY(!window.findChild<QPushButton *>("cancelOnlineSearch"));
         window.lyrics()->activityChanged(true);
         QVERIFY(window.findChild<BusySpinner *>("lyricMatchSpinner")->active());
@@ -1602,6 +1613,8 @@ class RedesignTests : public QObject {
         library.setWorkbenchLyrics(pending, "[00:00.00]已配置歌词", "测试");
         QCOMPARE(library.tracks().size(), 6);
         QVERIFY(library.stagedTracks().isEmpty());
+        QCOMPARE(selector->currentData().toLongLong(), 0);
+        QVERIFY(window.findChild<QLineEdit *>("lyricSongTitle")->text().isEmpty());
         window.player()->setQueue({});
     }
     void playbackBrowsingAndQueue() {

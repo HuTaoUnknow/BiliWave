@@ -1,6 +1,8 @@
 #pragma once
 #include "library.h"
 #include <QAudioOutput>
+#include <QAudioDevice>
+#include <QMediaDevices>
 #include <QMediaPlayer>
 class Player : public QObject {
     Q_OBJECT
@@ -26,6 +28,11 @@ class Player : public QObject {
     }
     void setVolume(float volume);
     void setDuckingGain(float gain);
+    QByteArray outputDeviceId() const { return m_outputDeviceId; }
+    void setOutputDeviceId(const QByteArray &id);
+    void refreshAudioOutputs(bool reconnect = false);
+    static QByteArray chooseAudioOutput(const QByteArray &preferred, const QList<QByteArray> &available,
+                                       const QByteArray &systemDefault);
     qint64 currentId() const {
         return m_current;
     }
@@ -66,6 +73,7 @@ class Player : public QObject {
     void failure(const QString &message);
     void streamRequested(quint64 token, const QString &url);
     void volumeChanged(float volume);
+    void audioOutputsChanged();
 
   private:
     void activate(quint64 key, bool play = true);
@@ -75,6 +83,8 @@ class Player : public QObject {
     Library *m_library;
     QMediaPlayer m_media;
     QAudioOutput m_audio;
+    QMediaDevices m_devices;
+    QByteArray m_outputDeviceId;
     float m_volume = .75f, m_duckingGain = 1.f;
     QList<QueueEntry> m_queue;
     QList<quint64> m_history, m_shuffleBag;

@@ -789,6 +789,10 @@ void MainWindow::settingsDialog() {
     navigate(4);
 }
 bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
+    if (event->type() == QEvent::Wheel && watched->objectName() == "settingsAudioOutput") {
+        event->ignore();
+        return true;
+    }
     if (m_pages->currentIndex() == 1 && (watched == m_tracks || watched == m_playlistTracks) &&
         (event->type() == QEvent::ShortcutOverride || event->type() == QEvent::KeyPress)) {
         auto key = static_cast<QKeyEvent *>(event);

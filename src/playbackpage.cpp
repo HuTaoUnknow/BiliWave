@@ -325,23 +325,11 @@ QWidget *MainWindow::createPlaybackPage() {
     auto clear = playButton("清空", "clearPlaybackQueue");
     queueHeading->addWidget(clear);
     queue->addLayout(queueHeading);
-    m_queueSummary = playLabel("队列为空");
-    m_queueSummary->setWordWrap(true);
-    queue->addWidget(m_queueSummary);
-    auto queueHint = playLabel("当前歌曲固定在最下方，待播从下向上播放");
-    queueHint->setWordWrap(true);
-    queue->addWidget(queueHint);
-    queue->addStretch(1);
-    m_queueEmpty = playLabel("双击左侧歌曲开始播放，或拖入歌曲、歌单加入队列。");
-    m_queueEmpty->setAlignment(Qt::AlignCenter);
-    m_queueEmpty->setWordWrap(true);
-    queue->addWidget(m_queueEmpty);
     m_playbackQueue = new PlaybackQueueView(m_library);
     m_playbackQueue->setObjectName("playbackQueue");
     m_playbackQueue->setMinimumHeight(90);
     m_playbackQueue->setContextMenuPolicy(Qt::CustomContextMenu);
     queue->addWidget(m_playbackQueue, 1);
-    queue->addWidget(playLabel("↑ 越靠下，越先播放"));
     split->addWidget(right);
     split->setStretchFactor(0, 1);
     split->setStretchFactor(1, 0);
@@ -547,11 +535,5 @@ void MainWindow::refreshPlaybackQueue() {
         item->setSizeHint(0, QSize(0, 54));
         m_playbackQueue->setItemWidget(item, 0, cell);
     }
-    const QStringList modes{"顺序播放", "列表播放", "随机播放", "单曲循环"};
-    m_queueSummary->setText(QString("%1 首待播 · %2").arg(pending.size()).arg(modes[int(m_player.mode())]));
-    m_queueEmpty->setVisible(visible.isEmpty());
-    m_queueEmpty->setText("双击左侧歌曲开始播放，或拖入歌曲、歌单加入队列。");
-    m_playbackQueue->setMinimumHeight(visible.isEmpty() ? 90 : 56);
-    m_playbackQueue->setMaximumHeight(qMax(90, int(visible.size()) * 54 + 4));
     m_playbackQueue->scrollToBottom();
 }

@@ -1,0 +1,26 @@
+{
+  "checked_at": "2026-10-26T15:44:46.943661+08:00",
+  "verified": [
+    "playback queue stays full height with zero, one and multiple entries",
+    "queue descriptions and stretch removed",
+    "URL collection stages a queue card instead of entering library immediately",
+    "URL cards support direct library collection and workbench lyric configuration",
+    "successful lyric import, skip import and deferred import clear selected workbench",
+    "URL deletion removes staged metadata without downloading audio",
+    "other song drafts and completed queue results remain independent"
+  ],
+  "test_logs": {
+    "screen_ui": ".cache/collection-full-ui.txt",
+    "lite_ui": ".cache/collection-lite-ui.txt",
+    "screen_workbench": ".cache/collection-workbench-full.txt",
+    "lite_workbench": ".cache/collection-workbench-lite.txt"
+  },
+  "deployed_sha256": {
+    "build-debug/BiliWave.exe": "4b512e4078a35ada6bbc2a15d8ae90bca348fad370a507d1d6c645adf892dce5",
+    "build/BiliWave.exe": "c2c72f1a97791e3a4325d6ca5d95342582d84c5c2841a645b74c4e6a98cf1909",
+    "release-screen/BiliWave.exe": "c2c72f1a97791e3a4325d6ca5d95342582d84c5c2841a645b74c4e6a98cf1909",
+    "build-lite/BiliWave.exe": "2835158fc01fd535bf44b854d60f14c19a641d22ea7022d5940a9bc4e06979c8",
+    "release-lite/BiliWave.exe": "2835158fc01fd535bf44b854d60f14c19a641d22ea7022d5940a9bc4e06979c8"
+  },
+  "visual_check": "docs/screenshots/player-songs-queue.png"
+}

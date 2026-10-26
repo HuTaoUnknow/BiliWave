@@ -1,7 +1,9 @@
 ﻿param([string]$Installer = '')
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
-if (-not $Installer) { $Installer = Join-Path $project 'dist\BiliWave-1.11.0-Windows-x64-Setup.exe' }
+$appVersion = [regex]::Match((Get-Content -LiteralPath (Join-Path $project 'CMakeLists.txt') -Raw), 'project\(BiliWave VERSION ([0-9.]+)').Groups[1].Value
+if (-not $appVersion) { throw 'Application version was not found' }
+if (-not $Installer) { $Installer = Join-Path $project "dist\BiliWave-$appVersion-Windows-x64-Setup.exe" }
 $Installer = [IO.Path]::GetFullPath($Installer)
 $verificationRoot = Join-Path $project ('.cache\ivf110-' + [guid]::NewGuid().ToString('N').Substring(0,8))
 $destination = Join-Path $verificationRoot 'App'
@@ -23,6 +25,7 @@ if ((Get-FileHash -LiteralPath $installedExe).Hash -ne (Get-FileHash -LiteralPat
 foreach ($forbidden in @('models\small.pt','tools\lyrics-runtime\Lib\site-packages\torch','tools\lyrics-runtime\Lib\site-packages\stable_whisper')) {
     if (Test-Path -LiteralPath (Join-Path $destination $forbidden)) { throw "Forbidden screen payload: $forbidden" }
 }
+$payloadBytes = (Get-ChildItem -LiteralPath $destination -File -Recurse | Measure-Object -Property Length -Sum).Sum
 $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
 Invoke-CheckedProcess $installedExe @('--capture',("`"$(Join-Path $verificationRoot 'screenshots')`""),'--capture-delay','800') 20000
 Write-Output 'Installed application started with system-only PATH.'
@@ -54,7 +57,8 @@ Invoke-CheckedProcess (Join-Path $destination 'unins000.exe') @('/VERYSILENT','/
 if (Test-Path -LiteralPath $installedExe) { throw 'Uninstaller did not remove the installed executable.' }
 if (-not (Test-Path -LiteralPath $sentinel)) { throw 'Uninstaller removed user data.' }
 $report = [ordered]@{
-    version = '1.11.0'; installer = $Installer; sha256 = (Get-FileHash -LiteralPath $Installer).Hash.ToLowerInvariant()
+    version = $appVersion; installer = $Installer; sha256 = (Get-FileHash -LiteralPath $Installer).Hash.ToLowerInvariant()
+    installer_bytes = (Get-Item -LiteralPath $Installer).Length; installed_bytes = $payloadBytes
     installed = $true; application_startup = $true; system_only_path = $true; alignment_payload_absent = $true
     bundled_runtime_imports = $true; subtitle_ocr = $true; audio_analysis_removed = $true
     uninstall = $true; user_data_preserved = $true
