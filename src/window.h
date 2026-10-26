@@ -196,6 +196,7 @@ class MainWindow : public QMainWindow {
     void discardDownload(QListWidgetItem *item);
     void commitLyricTrack(bool skipLyrics);
     void saveWorkbenchTrack();
+    bool rememberWorkbenchMetadata();
     void selectLyricTrack(qint64 id, bool match = false);
     void refreshLyricLibrary();
     void refreshLyricWorkbench(bool force = false);
@@ -264,6 +265,7 @@ class MainWindow : public QMainWindow {
     QMap<qint64, QList<QVariantMap>> m_candidateCache;
     QMap<qint64, QString> m_candidateQueries;
     qint64 m_lyricTrack = 0, m_candidateTrack = 0;
+    qint64 m_previewTrack = 0;
     QString m_workspaceFingerprint, m_searchQuery;
     QList<LyricLine> m_workspaceLines;
     int m_resultPage = 1;

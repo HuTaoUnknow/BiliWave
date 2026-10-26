@@ -1,7 +1,7 @@
-param([string]$Installer = '')
+﻿param([string]$Installer = '')
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
-if (-not $Installer) { $Installer = Join-Path $project 'dist\BiliWave-Lite-1.10.0-Windows-x64-Setup.exe' }
+if (-not $Installer) { $Installer = Join-Path $project 'dist\BiliWave-Lite-1.11.0-Windows-x64-Setup.exe' }
 $Installer = [IO.Path]::GetFullPath($Installer)
 $verificationRoot = Join-Path $project ('.cache\ivl110-' + [guid]::NewGuid().ToString('N').Substring(0,8))
 $destination = Join-Path $verificationRoot 'App'
@@ -30,7 +30,7 @@ $fixture = Join-Path $verificationRoot 'test audio.flac'
 Invoke-CheckedProcess (Join-Path $destination 'tools\ffmpeg.exe') @('-hide_banner','-loglevel','error','-y','-f','lavfi','-i','sine=frequency=440:duration=12','-c:a','flac',("`"$fixture`""))
 $smokePath = Join-Path $verificationRoot 'playback.json'
 Invoke-CheckedProcess $installedExe @('--import',("`"$fixture`""),'--smoke',("`"$smokePath`"")) 30000
-$smoke = Get-Content -LiteralPath $smokePath -Raw | ConvertFrom-Json
+$smoke = Get-Content -LiteralPath $smokePath -Raw -Encoding UTF8 | ConvertFrom-Json
 if (-not $smoke.decoded -or -not $smoke.seeked -or $smoke.tracks -ne 1) { throw 'Installed Lite playback check failed.' }
 Write-Output 'Installed Lite directly imported, decoded and seeked the local track.'
 $data = Join-Path $destination 'data'
@@ -40,7 +40,7 @@ Invoke-CheckedProcess (Join-Path $destination 'unins000.exe') @('/VERYSILENT','/
 if (Test-Path -LiteralPath $installedExe) { throw 'Uninstaller did not remove the installed executable.' }
 if (-not (Test-Path -LiteralPath $sentinel)) { throw 'Uninstaller removed user data.' }
 $report = [ordered]@{
-    version = '1.10.0'; edition = 'Lite'; installer = $Installer
+    version = '1.11.0'; edition = 'Lite'; installer = $Installer
     installer_bytes = (Get-Item -LiteralPath $Installer).Length; installed_bytes = $payloadBytes
     sha256 = (Get-FileHash -LiteralPath $Installer).Hash.ToLowerInvariant()
     installed = $true; application_startup = $true; system_only_path = $true; lyric_payload_absent = $true

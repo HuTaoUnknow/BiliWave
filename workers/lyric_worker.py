@@ -371,11 +371,14 @@ def events_to_lrc(events):
     return "\n".join(output)
 
 
-def caption_result(result):
+def caption_result(result, config=None):
     from bilingual import caption_text
+    from ocr_spacing import geometry_mode
+    from ocr_geometry import sensitivity
     blocks = sorted((row for row in (result or []) if float(row[2]) >= .55),
                     key=lambda row: (round(min(p[1] for p in row[0]) / 20), min(p[0] for p in row[0])))
-    return caption_text(blocks), min((float(row[2]) for row in blocks), default=0.)
+    value = sensitivity(config) if config is not None and geometry_mode(config) else None
+    return caption_text(blocks, value), min((float(row[2]) for row in blocks), default=0.)
 
 
 def frame_ocr(config):
@@ -409,9 +412,10 @@ def frame_ocr(config):
         backend["gpu_error"] = str(error)
         result, _ = engine(crop, use_cls=False)
     check_cancel(config)
-    text, confidence = caption_result(result)
+    text, confidence = caption_result(result, config)
+    from ocr_geometry import diagnostics
     progress("当前帧识别完成", 100)
-    return {"text": text, "confidence": confidence, "backend": backend,
+    return {"text": text, "confidence": confidence, "backend": backend, "spacing_diagnostics": diagnostics(engine),
             "crop_pixels": [l, t, r, b], "preview_time": config.get("preview_time", 0),
             "stats": {"sampled_frames": 1, "ocr_calls": 1}, "scope": "current_frame"}
 
@@ -472,7 +476,7 @@ def video_ocr(config):
                     result, _ = engine(image, use_cls=False)
                 ocr_seconds += time.perf_counter() - call_start
                 ocr_calls += 1
-                text, score = caption_result(result)
+                text, score = caption_result(result, config)
             segments.append({"start": round(span.start, 3), "end": round(end, 3),
                              "text": text, "confidence": score, "representative_time": round(stamp, 3)})
         finally:

@@ -1,5 +1,6 @@
 #include "lrc.h"
 #include "lyricworkflow.h"
+#include "features.h"
 #include "services.h"
 #include "theme.h"
 #include <QCheckBox>
@@ -23,6 +24,67 @@
 class LyricWorkflowTests : public QObject {
     Q_OBJECT
   private slots:
+    void allResultsHaveSourcesNumbersAndOptionalSimplification() {
+        QTemporaryDir dir(QDir::current().filePath("lyric-results-test-XXXXXX"));
+        Library library(dir.filePath("data"));
+        QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+        const auto id = library.addTrack({{"title", "繁體測試"}, {"path", "test.flac"}});
+        LyricQueue queue(&library, &settings);
+        const QString original = "[00:01.230]這是愛與夢想\n[00:03.000]Мой мир\n[00:03.000]夢裡的世界";
+        const QVariantMap synced{{"id", 123},
+                                 {"provider", "LRCLIB"},
+                                 {"trackName", "繁體測試"},
+                                 {"artistName", "歌手"},
+                                 {"syncedLyrics", original},
+                                 {"sourceUrl", "https://lrclib.net/api/get/123"}};
+        queue.addOnlineResults(id, {synced, {{"id", 456}, {"plainLyrics", "這是純文字"}}});
+        QCOMPARE(queue.count(), 2);
+        QVERIFY(library.track(id).value("lrc").toString().isEmpty());
+        QCOMPARE(queue.taskState(0), QString("待应用"));
+        QCOMPARE(queue.taskState(1), QString("仅文本"));
+        QVERIFY(queue.taskResult(0)["lrc"].toString().contains("这是爱与梦想"));
+        QCOMPARE(queue.taskResult(0)["raw_lrc"].toString(), original);
+        QCOMPARE(queue.taskResult(1)["text"].toString(), QString("这是纯文字"));
+        auto list = queue.findChild<QListWidget *>("lyricQueueTasks");
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toInt(), 1);
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 2).toString(), QString("LRCLIB #123"));
+        QVERIFY(list->item(0)->toolTip().contains("https://lrclib.net/api/get/123"));
+        list->setCurrentRow(1);
+        QTimer::singleShot(20, &queue, [&] {
+            auto dialog = queue.findChild<QDialog *>("queuedLyricReview");
+            QVERIFY(dialog);
+            QCOMPARE(dialog->findChild<QPlainTextEdit *>("queuedLyricResult")->toPlainText(),
+                     QString("这是纯文字"));
+            QVERIFY(!dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Apply)->isEnabled());
+            dialog->reject();
+        });
+        queue.findChild<QPushButton *>("reviewQueuedLyrics")->click();
+        list->setCurrentRow(0);
+        QTimer::singleShot(20, &queue, [&] {
+            auto dialog = queue.findChild<QDialog *>("queuedLyricReview");
+            QVERIFY(dialog->findChild<QLabel *>("queuedLyricOrigin")->text().contains("记录 #123"));
+            dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Apply)->click();
+        });
+        queue.findChild<QPushButton *>("reviewQueuedLyrics")->click();
+        QCOMPARE(queue.taskState(0), QString("已应用"));
+        QCOMPARE(library.workbenchTrack(id).value("raw_lrc").toString(), original);
+        queue.markApplied(id, original, "LRCLIB · https://lrclib.net/api/get/123");
+        QCOMPARE(queue.count(), 2); // Applying an existing candidate does not create a second result.
+        auto job = new LyricJob(&settings);
+        const int local = queue.enqueue(id, {{"operation", "ocr"}, {"video", "BV13x41117TL"}}, job);
+        job->finished({{"ok", true}, {"lrc", "[00:01.000]歌聲響起"}, {"source", "视频字幕 OCR"}});
+        QCOMPARE(queue.taskState(local), QString("待应用"));
+        QVERIFY(queue.taskResult(local)["lrc"].toString().contains("歌声响起"));
+        settings.setValue("lyrics/autoSimplifyChinese", false);
+        library.setAutoSimplifyLyrics(false);
+        queue.reloadTextSettings();
+        QCOMPARE(queue.taskResult(0)["lrc"].toString(), original);
+        QCOMPARE(library.workbenchTrack(id).value("lrc").toString(), original);
+        queue.cancelTask(1);
+        queue.addOnlineResults(id, {synced});
+        QCOMPARE(queue.taskResult(2)["queue_number"].toInt(), 4);
+        QCOMPARE(queue.taskResult(0)["queue_number"].toInt(), 1);
+    }
     void importReviewAndApply() {
         QTemporaryDir dir(QDir::current().filePath("lyrics-test-XXXXXX"));
         Library library(dir.filePath("data"));
@@ -44,13 +106,14 @@ class LyricWorkflowTests : public QObject {
             QVERIFY(wizard.findChild<QPlainTextEdit *>("alignedLyricResult")->toPlainText().contains("123"));
             next->click();
             QCOMPARE(wizard.result(), int(QDialog::Accepted));
-            QCOMPARE(library.track(id).value("lrc").toString(), text);
-            QCOMPARE(library.track(id).value("lyric_offset").toInt(), 0);
+            QCOMPARE(library.workbenchTrack(id).value("lrc").toString(), text);
+            QCOMPARE(library.workbenchTrack(id).value("lyric_offset").toInt(), 0);
+            QCOMPARE(library.track(id).value("lrc").toString(), QString("[00:00.10]旧歌词"));
         }
         {
             LyricWizard wizard(&library, &settings, id, "不要保存的编辑");
             wizard.reject();
-            QCOMPARE(library.track(id).value("lrc").toString(), text);
+            QCOMPARE(library.workbenchTrack(id).value("lrc").toString(), text);
         }
     }
     void videoRangeAndScreenshots() {
@@ -79,6 +142,8 @@ class LyricWorkflowTests : public QObject {
         QVERIFY(wizard.grab().save(screenshots.filePath("lyric-text-review.png")));
     }
     void realAlignment() {
+        if (!alignmentFeaturesEnabled())
+            QSKIP("Current editions do not ship audio alignment");
         const auto audio =
             QDir(resourceRoot()).filePath(".cache/whisper-source/whisper.cpp-1.9.5/samples/jfk.wav");
         if (!QFile::exists(audio) || !QFile::exists(resourceRoot() + "/models/small.pt"))
@@ -99,6 +164,8 @@ class LyricWorkflowTests : public QObject {
         QVERIFY(!job.busy());
     }
     void sameVersionCaptionHintsUseAudioWithoutSilentlyApplying() {
+        if (!alignmentFeaturesEnabled())
+            QSKIP("Current editions do not ship audio alignment");
         const auto audio =
             QDir(resourceRoot()).filePath(".cache/whisper-source/whisper.cpp-1.9.5/samples/jfk.wav");
         if (!QFile::exists(audio) || !QFile::exists(resourceRoot() + "/models/small.pt"))
@@ -134,6 +201,8 @@ class LyricWorkflowTests : public QObject {
         QVERIFY(result["lines"].toArray()[1].toObject()["start"].toDouble() > 2);
     }
     void captionReviewCanOpenAudioCalibrationWithoutApplying() {
+        if (!alignmentFeaturesEnabled())
+            QSKIP("Current editions do not ship audio alignment");
         QTemporaryDir dir(QDir::current().filePath("lyrics-caption-review-XXXXXX"));
         Library library(dir.filePath("data"));
         QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
@@ -272,7 +341,7 @@ class LyricWorkflowTests : public QObject {
         auto preview = wizard.findChild<LyricCropPreview *>("lyricCropPreview");
         auto button = wizard.findChild<QPushButton *>("recognizeCurrentLyricFrame");
         auto result = wizard.findChild<QPlainTextEdit *>("lyricFrameResult");
-        auto probability = wizard.findChild<QDoubleSpinBox *>("lyricOcrSpaceProbability");
+        auto probability = wizard.findChild<QDoubleSpinBox *>("lyricOcrGapSensitivity");
         QVERIFY(probability);
         QVERIFY(!wizard.findChild<QDoubleSpinBox *>("lyricOcrSpaceWeight"));
         QVERIFY(!wizard.findChild<QDoubleSpinBox *>("lyricOcrSpaceMinimum"));
@@ -297,7 +366,7 @@ class LyricWorkflowTests : public QObject {
         const auto output = QJsonObject::fromVariantMap(result->property("frameResult").toMap());
         QCOMPARE(output["stats"].toObject()["ocr_calls"].toInt(), 1);
         QCOMPARE(output["stats"].toObject()["sampled_frames"].toInt(), 1);
-        QCOMPARE(output["backend"].toObject()["spacing"].toObject()["probability"].toDouble(), .65);
+        QCOMPARE(output["backend"].toObject()["spacing"].toObject()["sensitivity"].toDouble(), .65);
         QVERIFY(!output.contains("lrc"));
         QCOMPARE(queue.count(), 0);
         QVERIFY(wizard.isVisible());
@@ -319,7 +388,7 @@ class LyricWorkflowTests : public QObject {
         }
         probability->setValue(70.);
         QVERIFY(result->toPlainText().isEmpty());
-        QCOMPARE(settings.value("lyrics/ocrSpaceProbability").toDouble(), .7);
+        QCOMPARE(settings.value("lyrics/ocrGapSensitivity").toDouble(), .7);
         // A new crop invalidates the old result; blank content is a valid check.
         preview->setSelection({0., .45, 1., .1});
         button->click();
@@ -352,30 +421,38 @@ class LyricWorkflowTests : public QObject {
         }
         wizard.close();
         LyricWizard restored(&library, &settings, id);
-        QCOMPARE(restored.findChild<QDoubleSpinBox *>("lyricOcrSpaceProbability")->value(), 70.);
+        QCOMPARE(restored.findChild<QDoubleSpinBox *>("lyricOcrGapSensitivity")->value(), 70.);
     }
-    void legacySpacingSettingsMigrateAndSubmittedTasksRemainCompatible() {
+    void geometricSensitivityHasOwnDefaultAndSubmittedTasksRemainCompatible() {
         QTemporaryDir dir(QDir::current().filePath("lyrics-space-migration-XXXXXX"));
         Library library(dir.filePath("data"));
         QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
         settings.setValue("lyrics/ocrSpaceWeight", 5.);
         settings.setValue("lyrics/ocrSpaceMinProbability", .3);
+        settings.setValue("lyrics/ocrSpaceProbability", 1.);
         const auto id = library.addTrack({{"title", "空格参数迁移"}, {"path", "test.flac"}});
         LyricWizard wizard(&library, &settings, id);
-        auto probability = wizard.findChild<QDoubleSpinBox *>("lyricOcrSpaceProbability");
-        QCOMPARE(probability->value(), 76.9);
+        auto probability = wizard.findChild<QDoubleSpinBox *>("lyricOcrGapSensitivity");
+        QCOMPARE(probability->value(), 50.);
         auto defaults = LyricJob::prepareConfig(&settings, {{"operation", "ocr"}});
-        QCOMPARE(defaults["ocr_space_probability"].toDouble(), .769);
+        QCOMPARE(defaults["ocr_gap_sensitivity"].toDouble(), .5);
+        QVERIFY(!defaults.contains("ocr_space_probability"));
         QVERIFY(!defaults.contains("ocr_space_weight"));
         QVERIFY(!defaults.contains("ocr_space_min_probability"));
         auto legacy = LyricJob::prepareConfig(
             &settings, {{"operation", "ocr"}, {"ocr_space_weight", 2.}, {"ocr_space_min_probability", .03}});
         QVERIFY(!legacy.contains("ocr_space_probability"));
+        QVERIFY(!legacy.contains("ocr_gap_sensitivity"));
         QCOMPARE(legacy["ocr_space_weight"].toDouble(), 2.);
         QCOMPARE(legacy["ocr_space_min_probability"].toDouble(), .03);
+        const auto previous =
+            LyricJob::prepareConfig(&settings, {{"operation", "ocr"}, {"ocr_space_probability", 1.}});
+        QVERIFY(!previous.contains("ocr_gap_sensitivity"));
+        QCOMPARE(previous["ocr_space_probability"].toDouble(), 1.);
         probability->setValue(20.);
+        QCOMPARE(defaults["ocr_gap_sensitivity"].toDouble(), .5);
         LyricWizard restored(&library, &settings, id);
-        QCOMPARE(restored.findChild<QDoubleSpinBox *>("lyricOcrSpaceProbability")->value(), 20.);
+        QCOMPARE(restored.findChild<QDoubleSpinBox *>("lyricOcrGapSensitivity")->value(), 20.);
     }
     void videoOcrPipeline() {
         const auto fixture = resourceRoot() + "/.cache/lyric-validation/ocr-fixture.mp4";
@@ -458,7 +535,8 @@ class LyricWorkflowTests : public QObject {
         });
         queue.findChild<QPushButton *>("reviewQueuedLyrics")->click();
         QCOMPARE(queue.taskState(a), QString("已应用"));
-        QCOMPARE(library.track(one).value("lrc").toString(), QString("[00:01.00]检查后的歌词"));
+        QCOMPARE(library.workbenchTrack(one).value("lrc").toString(), QString("[00:01.00]检查后的歌词"));
+        QCOMPARE(library.track(one).value("lrc").toString(), QString("[00:00.00]原歌词"));
         QVERIFY(library.track(two).value("lrc").toString().isEmpty());
     }
     void russianAndItalianSubtitleLanguagesReachQueuedWorker() {
@@ -619,7 +697,7 @@ class LyricWorkflowTests : public QObject {
         LyricJob job(&settings);
         QSignalSpy done(&job, &LyricJob::finished);
         QVERIFY(job.start(
-            {{"operation", "align"}, {"audio", "does-not-exist"}, {"text", "test"}, {"language", "en"}}));
+            {{"operation", "ocr"}, {"video", "does-not-exist"}, {"text", "test"}, {"language", "en"}}));
         job.cancel();
         QVERIFY(done.wait(10000));
         const auto result = done.first().first().toJsonObject();

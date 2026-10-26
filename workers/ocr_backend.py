@@ -52,9 +52,12 @@ def graphics_adapters():
 
 def create_engine(config, report):
     from languages import recognition_options
-    from ocr_spacing import apply_spacing, appearance_probability
+    from ocr_spacing import apply_spacing, appearance_probability, geometry_mode
+    from ocr_geometry import sensitivity, ThinStrokeEngine
     language, language_label, recognition = recognition_options(config)
-    space_probability = appearance_probability(config)
+    geometric = geometry_mode(config)
+    gap_sensitivity = sensitivity(config) if geometric else None
+    space_probability = appearance_probability(config) if not geometric else None
     # Isolate the DML wheel from the CPU runtime used by text/audio alignment.
     gpu_path = Path(config.get("gpu_runtime") or Path(__file__).resolve().parents[1] / "tools/ocr-gpu")
     if (gpu_path / "onnxruntime").is_dir() and "onnxruntime" not in sys.modules:
@@ -116,7 +119,7 @@ def create_engine(config, report):
             engine = RapidOCR(intra_op_num_threads=max(1, min(4, os.cpu_count() or 1)),
                             inter_op_num_threads=1, det_limit_type="max", det_limit_side_len=960,
                             **recognition)
-            apply_spacing(engine.text_rec, config)
+            engine.text_rec = apply_spacing(engine.text_rec, config)
             if language in {"ru_zh", "it_zh"}:
                 from rapidocr_onnxruntime.main import DEFAULT_CFG_PATH, read_yaml, update_model_path
                 from rapidocr_onnxruntime.ch_ppocr_rec import TextRecognizer
@@ -125,7 +128,7 @@ def create_engine(config, report):
                 rec_config.update(intra_op_num_threads=max(1, min(4, os.cpu_count() or 1)),
                                   inter_op_num_threads=1)
                 engine.chinese_rec = TextRecognizer(rec_config)
-                apply_spacing(engine.chinese_rec, config)
+                engine.chinese_rec = apply_spacing(engine.chinese_rec, dict(config, ocr_language="zh"))
                 engine.text_rec = DualRecognizer(engine.text_rec, engine.chinese_rec)
             return engine
         finally:
@@ -155,11 +158,12 @@ def create_engine(config, report):
             "sessions": [s.get_providers() for s in sessions], "ocr_language": language,
             "language_name": language_label,
             "recognition_model": recognition.get("rec_model_path", "bundled Chinese/English")}
-    info["spacing"] = {"probability": space_probability}
+    info["spacing"] = ({"mode": "geometry", "sensitivity": gap_sensitivity}
+                       if geometric else {"mode": "legacy_model_weight", "probability": space_probability})
     if warning:
         info["warning"] = warning
         report(warning, 0)
     label = "GPU · " + adapter.get("name", provider) if provider != "CPUExecutionProvider" else "CPU"
     info["label"] = label
     report("字幕 OCR 使用 " + label + " · " + language_label, 0)
-    return engine, info, sessions
+    return ThinStrokeEngine(engine, config) if geometric else engine, info, sessions

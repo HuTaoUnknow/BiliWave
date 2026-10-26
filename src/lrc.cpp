@@ -1,6 +1,89 @@
 #include "lrc.h"
+#include <QFile>
+#include <QHash>
 #include <QRegularExpression>
+#include <QResource>
+#include <QVector>
 #include <algorithm>
+
+static void initializeChineseResources() {
+    // Keep the dictionary resources linked when bili_core is a static library.
+    Q_INIT_RESOURCE(chinese_lyrics);
+}
+
+namespace {
+class ChineseDictionary {
+    struct Node {
+        QHash<QChar, int> next;
+        QString replacement;
+    };
+    QVector<Node> m_nodes{Node{}};
+
+  public:
+    ChineseDictionary() {
+        initializeChineseResources();
+        // Phrase entries override individual characters and preserve cases such
+        // as 乾隆 / 乾坤 while converting 乾淨 to 干净.
+        for (const auto &path : {":/biliwave/chinese/TSCharacters.txt", ":/biliwave/chinese/TSPhrases.txt"}) {
+            QFile file(path);
+            if (!file.open(QIODevice::ReadOnly))
+                qFatal("Missing embedded Chinese conversion dictionary: %s", path);
+            while (!file.atEnd()) {
+                const auto line = QString::fromUtf8(file.readLine()).trimmed();
+                const auto tab = line.indexOf('\t');
+                if (line.startsWith('#') || tab <= 0)
+                    continue;
+                const auto key = line.left(tab);
+                const auto value = line.mid(tab + 1).section(' ', 0, 0);
+                if (value.isEmpty())
+                    continue;
+                int node = 0;
+                for (const auto character : key) {
+                    int next = m_nodes[node].next.value(character, -1);
+                    if (next < 0) {
+                        next = int(m_nodes.size());
+                        m_nodes[node].next.insert(character, next);
+                        m_nodes.append(Node{});
+                    }
+                    node = next;
+                }
+                m_nodes[node].replacement = value;
+            }
+        }
+    }
+    QString convert(const QString &text) const {
+        QString converted;
+        converted.reserve(text.size());
+        for (qsizetype start = 0; start < text.size();) {
+            int node = 0, match = -1;
+            qsizetype end = start;
+            for (qsizetype cursor = start; cursor < text.size(); ++cursor) {
+                node = m_nodes[node].next.value(text[cursor], -1);
+                if (node < 0)
+                    break;
+                if (!m_nodes[node].replacement.isEmpty()) {
+                    match = node;
+                    end = cursor + 1;
+                }
+            }
+            if (match >= 0) {
+                converted += m_nodes[match].replacement;
+                start = end;
+            } else
+                converted += text[start++];
+        }
+        return converted;
+    }
+};
+} // namespace
+
+QString Lrc::simplifiedChinese(const QString &text, bool enabled) {
+    if (!enabled || text.isEmpty())
+        return text;
+    static const ChineseDictionary dictionary;
+    return dictionary.convert(text);
+}
+
 QList<LyricLine> Lrc::parse(const QString &text) {
     QList<LyricLine> out;
     qint64 offset = 0;

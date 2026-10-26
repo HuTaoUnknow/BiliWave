@@ -1,4 +1,5 @@
 #include "library.h"
+#include "lrc.h"
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -56,6 +57,13 @@ Library::Library(const QString &directory, QObject *parent) : QObject(parent), m
                 return;
             }
         }
+    }
+    if (!q.exec("CREATE TABLE IF NOT EXISTS workbench_tracks ("
+                "track_id INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,"
+                "title TEXT NOT NULL, artist TEXT, lrc TEXT, lyric_source TEXT, lyric_offset INTEGER)")) {
+        m_error = q.lastError().text();
+        m_db.close();
+        return;
     }
     QSqlQuery sizes(m_db);
     sizes.exec("SELECT id,path FROM tracks WHERE storage='local' AND filesize=0");
@@ -139,14 +147,14 @@ QList<Track> Library::stagedTracks() const {
     q.exec("SELECT * FROM tracks WHERE staged=1 ORDER BY id DESC");
     QList<Track> result;
     while (q.next())
-        result << row(q);
+        result << lyricView(row(q));
     return result;
 }
 Track Library::track(qint64 id) const {
     QSqlQuery q(m_db);
     q.prepare("SELECT * FROM tracks WHERE id=?");
     q.addBindValue(id);
-    return q.exec() && q.next() ? row(q) : Track{};
+    return q.exec() && q.next() ? lyricView(row(q)) : Track{};
 }
 QList<Track> Library::tracks(qint64 playlist, const QString &search) const {
     QSqlQuery q(m_db);
@@ -166,7 +174,7 @@ QList<Track> Library::tracks(qint64 playlist, const QString &search) const {
     QList<Track> out;
     if (q.exec())
         while (q.next())
-            out << row(q);
+            out << lyricView(row(q));
     return out;
 }
 QList<QVariantMap> Library::playlists() const {
@@ -306,6 +314,19 @@ bool Library::setLyrics(qint64 id, const QString &lrc, const QString &source) {
         emit changed();
     return ok;
 }
+Track Library::lyricView(Track track) const {
+    if (!track.isEmpty()) {
+        track["raw_lrc"] = track.value("lrc");
+        track["lrc"] = Lrc::simplifiedChinese(track.value("lrc").toString(), m_autoSimplifyLyrics);
+    }
+    return track;
+}
+void Library::setAutoSimplifyLyrics(bool enabled) {
+    if (m_autoSimplifyLyrics == enabled)
+        return;
+    m_autoSimplifyLyrics = enabled;
+    emit changed();
+}
 bool Library::setOffset(qint64 id, int ms) {
     QSqlQuery q(m_db);
     q.prepare("UPDATE tracks SET lyric_offset=? WHERE id=?");
@@ -315,4 +336,87 @@ bool Library::setOffset(qint64 id, int ms) {
     if (ok)
         emit changed();
     return ok;
+}
+
+bool Library::beginWorkbench(qint64 id) {
+    QSqlQuery q(m_db);
+    q.prepare("INSERT OR IGNORE INTO workbench_tracks "
+              "SELECT id,title,artist,lrc,lyric_source,lyric_offset FROM tracks WHERE id=?");
+    q.addBindValue(id);
+    return q.exec() && !track(id).isEmpty();
+}
+Track Library::workbenchTrack(qint64 id) const {
+    auto result = track(id);
+    if (result.isEmpty())
+        return result;
+    QSqlQuery q(m_db);
+    q.prepare("SELECT title,artist,lrc,lyric_source,lyric_offset FROM workbench_tracks WHERE track_id=?");
+    q.addBindValue(id);
+    if (q.exec() && q.next()) {
+        const auto draft = row(q);
+        for (auto it = draft.begin(); it != draft.end(); ++it)
+            result[it.key()] = it.value();
+    }
+    return lyricView(result);
+}
+bool Library::setWorkbenchMetadata(qint64 id, const QString &title, const QString &artist) {
+    if (!beginWorkbench(id))
+        return false;
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE workbench_tracks SET title=?,artist=? WHERE track_id=?");
+    q.addBindValue(title);
+    q.addBindValue(artist);
+    q.addBindValue(id);
+    const bool ok = q.exec() && q.numRowsAffected() == 1;
+    if (ok)
+        emit workbenchChanged(id);
+    return ok;
+}
+bool Library::setWorkbenchLyrics(qint64 id, const QString &lrc, const QString &source) {
+    if (!beginWorkbench(id))
+        return false;
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE workbench_tracks SET lrc=?,lyric_source=?,lyric_offset=0 WHERE track_id=?");
+    q.addBindValue(lrc);
+    q.addBindValue(source);
+    q.addBindValue(id);
+    const bool ok = q.exec() && q.numRowsAffected() == 1;
+    if (ok)
+        emit workbenchChanged(id);
+    return ok;
+}
+bool Library::setWorkbenchOffset(qint64 id, int ms) {
+    if (!beginWorkbench(id))
+        return false;
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE workbench_tracks SET lyric_offset=? WHERE track_id=?");
+    q.addBindValue(ms);
+    q.addBindValue(id);
+    const bool ok = q.exec() && q.numRowsAffected() == 1;
+    if (ok)
+        emit workbenchChanged(id);
+    return ok;
+}
+bool Library::saveWorkbench(qint64 id, bool includeLyrics) {
+    if (!beginWorkbench(id) || workbenchTrack(id).value("title").toString().trimmed().isEmpty() ||
+        !m_db.transaction())
+        return false;
+    QSqlQuery q(m_db);
+    const QString lyrics = includeLyrics ? ",lrc=w.lrc,lyric_source=w.lyric_source,lyric_offset=w.lyric_offset" : "";
+    q.prepare("UPDATE tracks SET title=trim(w.title),artist=trim(w.artist),staged=0" + lyrics +
+              " FROM workbench_tracks w WHERE tracks.id=w.track_id AND tracks.id=?");
+    q.addBindValue(id);
+    if (!q.exec() || q.numRowsAffected() != 1) {
+        m_db.rollback();
+        return false;
+    }
+    q.prepare("DELETE FROM workbench_tracks WHERE track_id=?");
+    q.addBindValue(id);
+    if (!q.exec() || !m_db.commit()) {
+        m_db.rollback();
+        return false;
+    }
+    emit changed();
+    emit workbenchChanged(id);
+    return true;
 }

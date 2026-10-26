@@ -61,9 +61,9 @@ class LyricService : public QObject {
   public:
     LyricService(Library *library, QSettings *settings, QObject *parent = nullptr);
     ~LyricService() override;
-    void fetch(qint64 id, bool force = false, const QString &keywords = {});
-    bool importFile(qint64 id, const QString &path);
-    void useCandidate(qint64 id, const QVariantMap &candidate);
+    void fetch(qint64 id, bool force = false, const QString &keywords = {}, bool workbench = false);
+    bool importFile(qint64 id, const QString &path, bool workbench = false);
+    void useCandidate(qint64 id, const QVariantMap &candidate, bool workbench = false);
     bool busy() const {
         return false;
     }
@@ -75,6 +75,7 @@ class LyricService : public QObject {
     void message(const QString &text);
     void candidates(qint64 id, const QList<QVariantMap> &items);
     void activityChanged(bool active);
+    void resultApplied(qint64 track, const QString &lrc, const QString &source);
 
   private:
     void fetchOnline(qint64 id, const QString &keywords);
@@ -85,6 +86,7 @@ class LyricService : public QObject {
     bool m_onlinePending = false;
     OnlineLyricsSearch m_online;
     qint64 m_onlineTrack = 0;
+    bool m_onlineWorkbench = false;
 };
 
 class AudioExportService : public QObject {

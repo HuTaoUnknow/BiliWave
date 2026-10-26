@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-25",
+  "cause": "Native Windows LCMapStringEx retained U+5F8C while converting neighboring traditional characters on this machine.",
+  "backend": "Embedded OpenCC ver.1.1.9 TSCharacters/TSPhrases dictionaries with a Qt longest-match trie; no OpenCC runtime or Python dependency.",
+  "input": "我在門後 假裝你人還沒走",
+  "expected": "我在门后 假装你人还没走",
+  "other_cases": [
+    "乾淨 → 干净; 乾隆 / 乾坤 preserved",
+    "LRC times, Russian/English spaces and emoji unchanged",
+    "Original text retained and simplification can be disabled"
+  ],
+  "tests": [
+    {
+      "report": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\hou-core-tests.txt",
+      "passed": 11,
+      "failed": 0
+    },
+    {
+      "report": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\hou-queue-tests.txt",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "report": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\hou-ui-tests.txt",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "report": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\hou-lite-tests.txt",
+      "passed": 3,
+      "failed": 0
+    }
+  ],
+  "artifacts": {
+    "full": {
+      "path": "D:\\PC\\Project\\Qt\\bilibili_mp3\\build\\BiliWave.exe",
+      "bytes": 2431901,
+      "sha256": "d73207ac165d342af5e71203118ecfcc154fc0a0b9c63193a0bb227428a790f7"
+    },
+    "lite": {
+      "path": "D:\\PC\\Project\\Qt\\bilibili_mp3\\build-lite\\BiliWave.exe",
+      "bytes": 2399731,
+      "sha256": "3cc87ca566464c3870a9784dc5a78aa78317a681ab2297068b83d737a0d55f5e"
+    },
+    "debug": {
+      "path": "D:\\PC\\Project\\Qt\\bilibili_mp3\\build-debug\\BiliWave.exe",
+      "bytes": 33169681,
+      "sha256": "59eec0f8ac0dc67debd907a3c6c2af560e4e0ddf4c261dc5fd8aa2731c9e3ea9"
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "version": "1.11.0",
+  "validated_at": "2026-10-26T11:04:15.800725+08:00",
+  "repository": "https://github.com/HuTaoUnknow/BiliWave",
+  "release": "https://github.com/HuTaoUnknow/BiliWave/releases/tag/v1.11.0",
+  "artifacts": [
+    {
+      "edition": "加装版：屏幕字幕识别",
+      "file": "BiliWave-1.11.0-Windows-x64-Setup.exe",
+      "bytes": 221910962,
+      "MiB": 211.63,
+      "sha256": "e24c3e2f09bab6e4e3b780015d3f03ff735c8f20f8b4ccf76db5f4ee873eda08"
+    },
+    {
+      "edition": "简装版：线上匹配",
+      "file": "BiliWave-Lite-1.11.0-Windows-x64-Setup.exe",
+      "bytes": 105508568,
+      "MiB": 100.62,
+      "sha256": "9d6ef7de17469b3a95d0e501802742d9a0806f782ecaa75b86a6e28a0ddeb23c"
+    }
+  ],
+  "tests": {
+    "screen_ctest_groups_passed": 7,
+    "screen_ctest_groups_failed": 0,
+    "lite_ctest_groups_passed": 5,
+    "lite_ctest_groups_failed": 0,
+    "python_geometry_tests_passed": 8,
+    "python_existing_worker_tests_passed": 23,
+    "legacy_alignment_tests": "not shipped; skipped",
+    "live_lyrics_network_test": "opt-in; skipped"
+  },
+  "workbench_contract": [
+    "URL and local tracks can enter the workbench",
+    "drafts persist independently per track",
+    "lyric application preserves configured title and artist",
+    "applying A while B is selected cannot overwrite B",
+    "library remains unchanged until explicit save/import",
+    "metadata, lyrics and offset commit atomically"
+  ],
+  "installers": {
+    "screen": {
+      "installed": true,
+      "application_startup": true,
+      "system_only_path": true,
+      "alignment_payload_absent": true,
+      "bundled_runtime_imports": true,
+      "subtitle_ocr": true,
+      "uninstall": true,
+      "user_data_preserved": true
+    },
+    "lite": {
+      "installed": true,
+      "application_startup": true,
+      "system_only_path": true,
+      "lyric_payload_absent": true,
+      "direct_library_import": true,
+      "decoded": true,
+      "seeked": true,
+      "uninstall": true,
+      "user_data_preserved": true
+    }
+  },
+  "ocr_only_runtime": {
+    "provider": "DmlExecutionProvider",
+    "gpu_frame_text": "一",
+    "audio_models_included": false,
+    "torch_included": false,
+    "whisper_included": false
+  }
+}

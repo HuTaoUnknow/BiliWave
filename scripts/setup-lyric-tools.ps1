@@ -1,4 +1,4 @@
-param([switch]$CpuOnly)
+param([switch]$CpuOnly, [switch]$LegacyAlignment)
 $ErrorActionPreference='Stop'
 $project=Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $project
@@ -22,12 +22,17 @@ if(-not (Test-Path -LiteralPath tools/lyrics-runtime/Lib/site-packages/pip)){
     & tools/lyrics-runtime/python.exe .cache/get-pip.py --disable-pip-version-check
     if($LASTEXITCODE){throw 'pip bootstrap failed'}
 }
-& tools/lyrics-runtime/python.exe -m pip install --disable-pip-version-check --no-warn-script-location torch==2.6.0+cpu torchaudio==2.6.0+cpu --index-url https://download.pytorch.org/whl/cpu
-if($LASTEXITCODE){throw 'CPU inference runtime install failed'}
-& tools/lyrics-runtime/python.exe -m pip install --disable-pip-version-check --no-warn-script-location --no-build-isolation -r scripts/lyric-requirements.txt
+if ($LegacyAlignment) {
+    & tools/lyrics-runtime/python.exe -m pip install --disable-pip-version-check --no-warn-script-location torch==2.6.0+cpu torchaudio==2.6.0+cpu --index-url https://download.pytorch.org/whl/cpu
+    if($LASTEXITCODE){throw 'CPU inference runtime install failed'}
+}
+$requirements = if ($LegacyAlignment) { 'scripts/lyric-requirements.txt' } else { 'scripts/ocr-only-requirements.txt' }
+& tools/lyrics-runtime/python.exe -m pip install --disable-pip-version-check --no-warn-script-location --no-build-isolation -r $requirements
 if($LASTEXITCODE){throw 'Lyric dependencies install failed'}
-Get-LyricResource 'https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt' 'models/small.pt' '9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794'
-& tools/lyrics-runtime/python.exe -c "import stable_whisper; from rapidocr_onnxruntime import RapidOCR; RapidOCR(); print('Alignment and OCR dependencies ready')"
+if ($LegacyAlignment) {
+    Get-LyricResource 'https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt' 'models/small.pt' '9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794'
+}
+& tools/lyrics-runtime/python.exe -c "from rapidocr_onnxruntime import RapidOCR; RapidOCR(); print('OCR dependencies ready')"
 if($LASTEXITCODE){throw 'Lyric dependency verification failed'}
 if (-not $CpuOnly) { & "$PSScriptRoot\setup-ocr-gpu.ps1" }
 & "$PSScriptRoot\setup-ocr-languages.ps1"

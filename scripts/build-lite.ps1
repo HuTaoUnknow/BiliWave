@@ -5,7 +5,7 @@ $env:PATH = "$QtTools\mingw1310_64\bin;$QtRoot\bin;" + $env:PATH
 $cmake = Join-Path $QtTools 'CMake_64\bin\cmake.exe'
 $build = Join-Path $project 'build-lite'
 $release = Join-Path $project 'release-lite'
-& $cmake -S $project -B $build -G Ninja "-DCMAKE_MAKE_PROGRAM=$QtTools/Ninja/ninja.exe" "-DCMAKE_PREFIX_PATH=$QtRoot" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DBILI_ENABLE_LYRICS=ON -DBILI_ENABLE_RECOGNITION=OFF
+& $cmake -S $project -B $build -G Ninja "-DCMAKE_MAKE_PROGRAM=$QtTools/Ninja/ninja.exe" "-DCMAKE_PREFIX_PATH=$QtRoot" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DBILI_ENABLE_LYRICS=ON -DBILI_ENABLE_RECOGNITION=OFF -DBILI_ENABLE_ALIGNMENT=OFF
 if ($LASTEXITCODE) { throw 'Lite configure failed' }
 & $cmake --build $build -j 4
 if ($LASTEXITCODE) { throw 'Lite build failed' }

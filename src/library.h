@@ -32,11 +32,21 @@ class Library : public QObject {
     bool deleteTrack(qint64 id);
     bool updateTrack(qint64 id, const QString &title, const QString &artist);
     bool setLyrics(qint64 id, const QString &lrc, const QString &source);
+    void setAutoSimplifyLyrics(bool enabled);
     bool setOffset(qint64 id, int milliseconds);
+    bool beginWorkbench(qint64 id);
+    Track workbenchTrack(qint64 id) const;
+    bool setWorkbenchMetadata(qint64 id, const QString &title, const QString &artist);
+    bool setWorkbenchLyrics(qint64 id, const QString &lrc, const QString &source);
+    bool setWorkbenchOffset(qint64 id, int milliseconds);
+    bool saveWorkbench(qint64 id, bool includeLyrics = true);
   signals:
     void changed();
+    void workbenchChanged(qint64 id);
 
   private:
+    Track lyricView(Track track) const;
+    bool m_autoSimplifyLyrics = true;
     QSqlDatabase m_db;
     QString m_directory, m_connection, m_error;
 };

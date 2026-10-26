@@ -1,6 +1,6 @@
-param([switch]$Development)
+param([switch]$Development, [switch]$Lite)
 $project=Split-Path $PSScriptRoot -Parent
-$release=Join-Path $project 'release\BiliWave.exe'
+$release=Join-Path $project $(if ($Lite) { 'release-lite\BiliWave.exe' } else { 'release-screen\BiliWave.exe' })
 if((Test-Path -LiteralPath $release) -and -not $Development){
     Start-Process -FilePath $release -WorkingDirectory (Split-Path $release -Parent) -WindowStyle Hidden
 } else {

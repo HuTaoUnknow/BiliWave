@@ -224,7 +224,7 @@ MainWindow::MainWindow(Library *l, QSettings *s, QWidget *p)
     }
     if (s->value("lyrics/source", "auto").toString() == "auto")
         s->setValue("lyrics/source", "online");
-    setWindowTitle(recognitionFeaturesEnabled() ? "BiliWave · 音乐工作台" : "BiliWave Lite · 音乐工作台");
+    setWindowTitle(recognitionFeaturesEnabled() ? "BiliWave 加装版 · 音乐工作台" : "BiliWave 简装版 · 音乐工作台");
     setWindowIcon(QIcon(":/biliwave/icon.png"));
     setMinimumSize(1040, 650);
     const auto available = QGuiApplication::primaryScreen()->availableGeometry();
@@ -399,13 +399,24 @@ MainWindow::MainWindow(Library *l, QSettings *s, QWidget *p)
                 }
                 updateDownloadTask(id, title, state);
             });
-    connect(&m_import, &ImportService::completed, this, &MainWindow::completeDownload);
+    connect(&m_import, &ImportService::completed, this, [this](const QString &taskId, qint64 trackId) {
+        const auto track = m_library->track(trackId);
+        if (lyricFeaturesEnabled() && !Lrc::parse(track.value("raw_lrc").toString()).isEmpty())
+            m_lyricQueue->markApplied(trackId, track.value("raw_lrc").toString(),
+                                      track.value("lyric_source").toString());
+        completeDownload(taskId, trackId);
+    });
     if (lyricFeaturesEnabled()) {
         connect(&m_lyrics, &LyricService::message, this, [this](const QString &text) {
             m_lyricStatus->setText(text);
             notify(text);
         });
-        connect(&m_lyrics, &LyricService::candidates, this, &MainWindow::chooseLyrics);
+        connect(&m_lyrics, &LyricService::candidates, this,
+                [this](qint64 track, const QList<QVariantMap> &items) {
+                    m_lyricQueue->addOnlineResults(track, items);
+                    chooseLyrics(track, items);
+                });
+        connect(&m_lyrics, &LyricService::resultApplied, m_lyricQueue, &LyricQueue::markApplied);
         connect(&m_lyrics, &LyricService::activityChanged, this, [this](bool busy) {
             m_lyricSpinner->setActive(busy || m_lyricQueue->activeFor(m_lyricTrack));
         });
@@ -458,17 +469,12 @@ MainWindow::MainWindow(Library *l, QSettings *s, QWidget *p)
         m_lyricFingerprint.clear();
         updateCurrent();
         if (lyricFeaturesEnabled() && m_player.currentId() &&
+            m_previewTrack != m_player.currentId() &&
+            !m_library->track(m_player.currentId()).value("staged").toBool() &&
             m_settings->value("lyrics/autoFetch", true).toBool())
             m_lyrics.fetch(m_player.currentId());
     });
     connect(l, &Library::changed, this, [this] {
-        if (m_pendingCommit &&
-            !Lrc::parse(m_library->track(m_pendingCommit).value("lrc").toString()).isEmpty()) {
-            const auto id = m_pendingCommit;
-            m_pendingCommit = 0;
-            m_library->commitTrack(id);
-            m_importStatus->setText("已导入乐库");
-        }
         for (auto it = m_jobItems.begin(); it != m_jobItems.end();) {
             const auto id = it.value()->data(Qt::UserRole).toLongLong();
             const auto track = m_library->track(id);
@@ -482,6 +488,20 @@ MainWindow::MainWindow(Library *l, QSettings *s, QWidget *p)
         refreshLyricLibrary();
         refreshLyricWorkbench();
         updateCurrent();
+    });
+    connect(l, &Library::workbenchChanged, this, [this](qint64 id) {
+        if (m_pendingCommit == id &&
+            !Lrc::parse(m_library->workbenchTrack(id).value("lrc").toString()).isEmpty()) {
+            m_pendingCommit = 0;
+            if (m_library->saveWorkbench(id))
+                m_importStatus->setText("已导入乐库");
+        }
+        if (id == m_lyricTrack)
+            refreshLyricWorkbench();
+        if (id == m_previewTrack) {
+            m_lyricFingerprint.clear();
+            updateCurrent();
+        }
     });
     connect(m_floatButton, &QPushButton::toggled, this, [this](bool on) {
         m_float->setVisible(on);
@@ -1048,12 +1068,7 @@ QWidget *MainWindow::createWorkbenchPage() {
         leftLayout->addWidget(scroll, 1);
         leftLayout->addWidget(actions);
         split->addWidget(left);
-        if (recognitionFeaturesEnabled())
-            split->addWidget(m_lyricQueue);
-        else {
-            m_lyricQueue->setParent(page);
-            m_lyricQueue->hide();
-        }
+        split->addWidget(m_lyricQueue);
         split->setStretchFactor(0, 3);
         split->setStretchFactor(1, 1);
         layout->addWidget(split);
@@ -1307,27 +1322,28 @@ void MainWindow::commitLyricTrack(bool skipLyrics) {
         m_lyricStatus->setText("请选择歌曲源");
         return;
     }
-    if (!m_library->updateTrack(m_lyricTrack, m_matchTitle->text(), m_matchArtist->text()))
+    if (!rememberWorkbenchMetadata())
         return;
-    if (skipLyrics || !Lrc::parse(m_library->track(m_lyricTrack).value("lrc").toString()).isEmpty()) {
+    if (skipLyrics || !Lrc::parse(m_library->workbenchTrack(m_lyricTrack).value("lrc").toString()).isEmpty()) {
         m_pendingCommit = 0;
-        m_library->commitTrack(m_lyricTrack);
-        m_importStatus->setText("已导入乐库");
+        if (m_library->saveWorkbench(m_lyricTrack, !skipLyrics))
+            m_importStatus->setText("已导入乐库");
     } else {
         m_pendingCommit = m_lyricTrack;
         applyLyricSource();
         if (m_lyricSource->currentData().toString() == "offline")
             matchLyrics();
         else
-            m_lyrics.fetch(m_lyricTrack, true, m_lyricLookup->text());
+            m_lyrics.fetch(m_lyricTrack, true, m_lyricLookup->text(), true);
     }
 }
 void MainWindow::loadLibraryTrack(qint64 id) {
     if (!lyricFeaturesEnabled())
         return;
     const auto track = m_library->track(id);
-    if (!id || track.isEmpty() || track.value("storage").toString() == "url")
+    if (!id || track.isEmpty())
         return;
+    m_library->beginWorkbench(id);
     m_workbenchTracks.insert(id);
     refreshLyricLibrary();
     selectLyricTrack(id, false);
@@ -1337,7 +1353,7 @@ void MainWindow::saveWorkbenchTrack() {
     if (!m_lyricTrack)
         return;
     const auto id = m_lyricTrack;
-    if (!m_library->updateTrack(id, m_matchTitle->text(), m_matchArtist->text())) {
+    if (!rememberWorkbenchMetadata() || !m_library->saveWorkbench(id)) {
         m_lyricStatus->setText("请填写歌曲名称。");
         return;
     }
@@ -1347,6 +1363,13 @@ void MainWindow::saveWorkbenchTrack() {
     refreshLyricLibrary();
     selectLyricTrack(0, false);
     m_importStatus->setText("已保存到乐库");
+}
+bool MainWindow::rememberWorkbenchMetadata() {
+    if (!m_lyricTrack || m_matchTitle->text().trimmed().isEmpty()) {
+        m_lyricStatus->setText("请填写歌曲名称。");
+        return false;
+    }
+    return m_library->setWorkbenchMetadata(m_lyricTrack, m_matchTitle->text(), m_matchArtist->text());
 }
 
 QWidget *MainWindow::createLyricWorkbench() {
@@ -1363,10 +1386,6 @@ QWidget *MainWindow::createLyricWorkbench() {
     m_commitWithoutLyrics = action("不配置歌词导入乐库", "commitWithoutLyrics");
     m_saveWorkbench = action("保存", "saveWorkbenchTrack");
     m_saveWorkbench->hide();
-    if (!recognitionFeaturesEnabled()) {
-        m_commitWithLyrics->hide();
-        m_commitWithoutLyrics->hide();
-    }
     heading->addWidget(m_commitWithLyrics);
     heading->addWidget(m_commitWithoutLyrics);
     heading->addWidget(m_saveWorkbench);
@@ -1386,9 +1405,16 @@ QWidget *MainWindow::createLyricWorkbench() {
     m_matchTitle = new QLineEdit;
     m_matchTitle->setObjectName("lyricSongTitle");
     m_matchArtist = new QLineEdit;
+    m_matchArtist->setObjectName("lyricSongArtist");
     m_matchArtist->setPlaceholderText("可填写真实歌手，提高匹配准确度");
     meta->addRow("歌曲名", m_matchTitle);
     meta->addRow("歌手", m_matchArtist);
+    auto remember = [this] {
+        if (m_lyricTrack)
+            m_library->setWorkbenchMetadata(m_lyricTrack, m_matchTitle->text(), m_matchArtist->text());
+    };
+    connect(m_matchTitle, &QLineEdit::textChanged, this, remember);
+    connect(m_matchArtist, &QLineEdit::textChanged, this, remember);
     m_lyricLookup = new QLineEdit;
     m_lyricLookup->setObjectName("lyricLookupInput");
     m_lyricLookup->setPlaceholderText("可选：搜索关键词或 LRCLIB 歌词链接");
@@ -1433,7 +1459,8 @@ QWidget *MainWindow::createLyricWorkbench() {
     m_localLyricMethod = new QComboBox(page);
     m_localLyricMethod->setObjectName("localLyricMethod");
     m_localLyricMethod->addItem("识别字幕 · 优先使用同源视频", 1);
-    m_localLyricMethod->addItem("导入歌词 · 按音频匹配时间", 0);
+    if (alignmentFeaturesEnabled())
+        m_localLyricMethod->addItem("导入歌词 · 按音频匹配时间", 0);
     m_localLyricMethod->hide();
     auto methodPages = new QStackedWidget;
     methodPages->setObjectName("lyricMethodPages");
@@ -1445,7 +1472,8 @@ QWidget *MainWindow::createLyricWorkbench() {
     auto methodGroup = new QButtonGroup(page);
     methodGroup->setExclusive(true);
     QList<QPushButton *> methodButtons;
-    const QStringList methodNames{"识别字幕", "导入歌词"};
+    const QStringList methodNames = alignmentFeaturesEnabled() ? QStringList{"识别字幕", "导入歌词"}
+                                                              : QStringList{"识别字幕"};
     for (int i = 0; i < methodNames.size(); ++i) {
         auto button = action(methodNames[i], QString("localLyricOption%1").arg(i));
         button->setCheckable(true);
@@ -1475,7 +1503,9 @@ QWidget *MainWindow::createLyricWorkbench() {
         const auto source = m_lyricSource->currentData().toString();
         methodPages->setCurrentIndex(m_lyricSource->currentIndex());
         categoryButtons[m_lyricSource->currentIndex()]->setChecked(true);
-        methodButtons[m_localLyricMethod->currentIndex()]->setChecked(true);
+        if (m_localLyricMethod->currentIndex() >= 0 &&
+            m_localLyricMethod->currentIndex() < methodButtons.size())
+            methodButtons[m_localLyricMethod->currentIndex()]->setChecked(true);
         match->setText(source == "online"                               ? "线上匹配"
                        : source == "local"                              ? "导入 LRC"
                        : m_localLyricMethod->currentData().toInt() == 1 ? "识别字幕"
@@ -1525,9 +1555,6 @@ QWidget *MainWindow::createLyricWorkbench() {
     realign->setObjectName("realignLyricCandidate");
     realign->hide();
     layout->addWidget(realign);
-    connect(m_candidates, &QTreeWidget::itemSelectionChanged, realign, [this, realign] {
-        realign->setVisible(recognitionFeaturesEnabled() && m_candidates->currentItem() != nullptr);
-    });
     connect(realign, &QPushButton::clicked, this, [this] {
         auto item = m_candidates->currentItem();
         if (!item || m_candidateTrack != m_lyricTrack)
@@ -1602,18 +1629,19 @@ QWidget *MainWindow::createLyricWorkbench() {
     connect(trial, &QPushButton::clicked, this, &MainWindow::playLyricPreview);
     connect(m_matchOffset, &QSpinBox::valueChanged, this, [this](int value) {
         if (m_lyricTrack)
-            m_library->setOffset(m_lyricTrack, value);
+            m_library->setWorkbenchOffset(m_lyricTrack, value);
     });
     connect(m_candidates, &QTreeWidget::currentItemChanged, this, [this](auto item, auto) {
         if (item) {
             auto c = item->data(0, Qt::UserRole).toMap();
             auto text = c.value("syncedLyrics").toString();
-            m_candidatePreview->setPlainText(text.isEmpty() ? c.value("plainLyrics").toString() : text);
+            m_candidatePreview->setPlainText(
+                Lrc::simplifiedChinese(text.isEmpty() ? c.value("plainLyrics").toString() : text,
+                                       m_settings->value("lyrics/autoSimplifyChinese", true).toBool()));
         }
     });
     connect(m_candidates, &QTreeWidget::itemSelectionChanged, use, [this, use] {
         const auto item = m_candidates->currentItem();
-        use->setVisible(item != nullptr);
         const bool timed =
             item &&
             !Lrc::parse(item->data(0, Qt::UserRole).toMap().value("syncedLyrics").toString()).isEmpty();
@@ -1638,7 +1666,7 @@ QWidget *MainWindow::createLyricWorkbench() {
             wizard.setQueue(m_lyricQueue);
             wizard.exec();
         } else {
-            m_lyrics.useCandidate(m_lyricTrack, c);
+            m_lyrics.useCandidate(m_lyricTrack, c, true);
             playLyricPreview();
         }
     });
@@ -1657,13 +1685,13 @@ void MainWindow::refreshLyricLibrary() {
     m_lyricTracks->addItem("", 0);
     if (!recognitionFeaturesEnabled())
         for (const auto &track : m_library->tracks())
-            if (track.value("storage").toString() != "url")
-                m_workbenchTracks.insert(track.value("id").toLongLong());
+            m_workbenchTracks.insert(track.value("id").toLongLong());
     for (const auto id : m_workbenchTracks) {
-        const auto t = m_library->track(id);
-        if (!t.isEmpty() && t.value("storage").toString() != "url")
+        const auto t = m_library->workbenchTrack(id);
+        if (!t.isEmpty())
             m_lyricTracks->addItem(
-                (t.value("staged").toBool() ? "[待入库] " : "") + t.value("title").toString(), id);
+                (t.value("staged").toBool() ? "[待入库] " : "") + t.value("title").toString() +
+                    (t.value("storage").toString() == "url" ? " [URL]" : ""), id);
     }
     const int index = m_lyricTracks->findData(m_lyricTrack);
     if (index < 0)
@@ -1675,9 +1703,13 @@ void MainWindow::selectLyricTrack(qint64 id, bool match) {
         return;
     if (id != m_lyricTrack)
         m_pendingCommit = 0;
-    if (!recognitionFeaturesEnabled() && m_library->track(id).value("storage").toString() != "url")
+    if (m_lyricTrack && id != m_lyricTrack)
+        m_library->setWorkbenchMetadata(m_lyricTrack, m_matchTitle->text(), m_matchArtist->text());
+    if (!recognitionFeaturesEnabled())
         m_workbenchTracks.insert(id);
     m_lyricTrack = m_workbenchTracks.contains(id) && !m_library->track(id).isEmpty() ? id : 0;
+    if (m_lyricTrack)
+        m_library->beginWorkbench(m_lyricTrack);
     {
         QSignalBlocker guard(m_lyricTracks);
         m_lyricTracks->setCurrentIndex(qMax(0, m_lyricTracks->findData(m_lyricTrack)));
@@ -1694,13 +1726,13 @@ void MainWindow::selectLyricTrack(qint64 id, bool match) {
         chooseLyrics(id, m_candidateCache.value(id));
     if (match && m_lyricTrack) {
         applyLyricSource();
-        m_lyrics.fetch(m_lyricTrack);
+        m_lyrics.fetch(m_lyricTrack, false, {}, true);
     }
 }
 void MainWindow::refreshLyricWorkbench(bool force) {
     if (!lyricFeaturesEnabled())
         return;
-    const auto t = m_library->track(m_lyricTrack);
+    const auto t = m_library->workbenchTrack(m_lyricTrack);
     if (t.isEmpty()) {
         m_candidates->clear();
         m_candidates->hide();
@@ -1717,8 +1749,13 @@ void MainWindow::refreshLyricWorkbench(bool force) {
         m_lyricLookup->clear();
         m_lyricLookup->setProperty("track", m_lyricTrack);
     }
-    m_matchTitle->setText(t.value("title").toString());
-    m_matchArtist->setText(t.value("artist").toString());
+    {
+        QSignalBlocker titleGuard(m_matchTitle), artistGuard(m_matchArtist);
+        if (m_matchTitle->text() != t.value("title").toString())
+            m_matchTitle->setText(t.value("title").toString());
+        if (m_matchArtist->text() != t.value("artist").toString())
+            m_matchArtist->setText(t.value("artist").toString());
+    }
     {
         QSignalBlocker guard(m_matchOffset);
         m_matchOffset->setValue(t.value("lyric_offset").toInt());
@@ -1773,7 +1810,7 @@ void MainWindow::refreshLyricWorkbench(bool force) {
     syncLyricPreview();
 }
 void MainWindow::saveLyricLines(const QList<LyricLine> &lines) {
-    m_library->setLyrics(m_lyricTrack, Lrc::serialize(lines), "手动调整");
+    m_library->setWorkbenchLyrics(m_lyricTrack, Lrc::serialize(lines), "手动调整");
 }
 void MainWindow::editLyricLine(int row, int operation) {
     auto lines = m_workspaceLines;
@@ -1837,7 +1874,7 @@ void MainWindow::matchLyrics(bool offline) {
         m_lyricStatus->setText("请先选择歌曲，或下载搜索结果。");
         return;
     }
-    if (!m_library->updateTrack(m_lyricTrack, m_matchTitle->text(), m_matchArtist->text())) {
+    if (!rememberWorkbenchMetadata()) {
         m_lyricStatus->setText("请填写歌曲名称。");
         return;
     }
@@ -1856,7 +1893,7 @@ void MainWindow::matchLyrics(bool offline) {
         m_candidates->setCurrentItem(item);
         const auto candidate = item->data(0, Qt::UserRole).toMap();
         if (!Lrc::parse(candidate.value("syncedLyrics").toString()).isEmpty())
-            m_lyrics.useCandidate(m_lyricTrack, candidate);
+            m_lyrics.useCandidate(m_lyricTrack, candidate, true);
         else
             m_lyricStatus->setText("下一个候选仅有文字，可采用后匹配时间。");
         return;
@@ -1870,9 +1907,9 @@ void MainWindow::matchLyrics(bool offline) {
     } else if (recognitionFeaturesEnabled() && m_lyricSource->currentData().toString() == "local") {
         const auto path = QFileDialog::getOpenFileName(this, "导入时间轴歌词", {}, "LRC (*.lrc)");
         if (!path.isEmpty())
-            m_lyrics.importFile(m_lyricTrack, path);
+            m_lyrics.importFile(m_lyricTrack, path, true);
     } else
-        m_lyrics.fetch(m_lyricTrack, true, m_lyricLookup->text());
+        m_lyrics.fetch(m_lyricTrack, true, m_lyricLookup->text(), true);
 }
 void MainWindow::openLyricWizard(const QString &text, int method) {
     if (!recognitionFeaturesEnabled())
@@ -1881,7 +1918,7 @@ void MainWindow::openLyricWizard(const QString &text, int method) {
         m_lyricStatus->setText("请先选择歌曲源。");
         return;
     }
-    if (!m_library->updateTrack(m_lyricTrack, m_matchTitle->text(), m_matchArtist->text()))
+    if (!rememberWorkbenchMetadata())
         return;
     if (method < 0)
         method = m_lyricSource->currentData().toString() == "online" ? 2
@@ -1898,10 +1935,13 @@ void MainWindow::playLyricPreview() {
         return;
     if (!m_lyricTrack)
         return;
+    m_previewTrack = m_lyricTrack;
+    m_lyricFingerprint.clear();
     if (m_player.currentId() != m_lyricTrack)
         m_player.setQueue({m_lyricTrack});
     else
         m_player.media()->play();
+    updateCurrent();
 }
 void MainWindow::syncLyricPreview() {
     if (!lyricFeaturesEnabled())
@@ -1918,7 +1958,7 @@ void MainWindow::chooseLyrics(qint64 id, const QList<QVariantMap> &items) {
     if (!lyricFeaturesEnabled())
         return;
     m_candidateCache[id] = items;
-    const auto track = m_library->track(id);
+    const auto track = m_library->workbenchTrack(id);
     m_candidateQueries[id] = track.value("title").toString().trimmed() + "\n" +
                              track.value("artist").toString().trimmed() + "\n" +
                              (id == m_lyricTrack ? m_lyricLookup->text().trimmed() : QString());
@@ -1938,11 +1978,13 @@ void MainWindow::chooseLyrics(qint64 id, const QList<QVariantMap> &items) {
         item->setData(0, Qt::UserRole, candidate);
         item->setToolTip(0, candidate.value("sourceUrl").toString());
     }
-    m_candidates->setVisible(!items.isEmpty());
-    m_candidatePreview->setVisible(!items.isEmpty());
+    // Keep candidate order for "next version" without duplicating the results UI.
+    // All versions are viewed and applied from the recognition queue.
+    m_candidates->hide();
+    m_candidatePreview->hide();
     if (!items.isEmpty())
         m_candidates->setCurrentItem(m_candidates->topLevelItem(0));
-    m_lyricStatus->setText("找到候选版本，选择后可采用并试听。");
+    m_lyricStatus->setText(items.isEmpty() ? QString() : "在线结果已加入识别队列，双击查看并应用。");
 }
 
 QWidget *MainWindow::createSettingsPage() {
@@ -1992,6 +2034,24 @@ QWidget *MainWindow::createSettingsPage() {
     auto resourceLayout = sectionLayouts[3];
     auto layout = sectionLayouts[1];
     generalLayout->addWidget(label("通用设置", "section"));
+    auto simplify = new QCheckBox("繁体中文自动转简体");
+    simplify->setObjectName("settingsAutoSimplifyChinese");
+    simplify->setChecked(m_settings->value("lyrics/autoSimplifyChinese", true).toBool());
+    simplify->setToolTip("对在线匹配、字幕识别、导入及已有歌词生效；保留原文和时间轴，关闭后可查看原文。");
+    generalLayout->addWidget(simplify);
+    connect(simplify, &QCheckBox::toggled, this, [this](bool enabled) {
+        m_settings->setValue("lyrics/autoSimplifyChinese", enabled);
+        m_settings->sync();
+        m_library->setAutoSimplifyLyrics(enabled);
+        if (lyricFeaturesEnabled())
+            m_lyricQueue->reloadTextSettings();
+        if (lyricFeaturesEnabled() && m_candidates->currentItem()) {
+            const auto candidate = m_candidates->currentItem()->data(0, Qt::UserRole).toMap();
+            const auto timed = candidate.value("syncedLyrics").toString();
+            m_candidatePreview->setPlainText(Lrc::simplifiedChinese(
+                timed.isEmpty() ? candidate.value("plainLyrics").toString() : timed, enabled));
+        }
+    });
 
     lyricLayout->addWidget(label("歌词显示", "section"));
     auto choiceRow = [page](QFormLayout *form, const QString &caption, const QString &name,
@@ -2259,6 +2319,10 @@ QWidget *MainWindow::createSettingsPage() {
                                {"俄语", "ru"},
                                {"意大利语", "it"}},
                               m_settings->value("lyrics/language", "auto"));
+    if (!alignmentFeaturesEnabled()) {
+        form->labelForField(language->buttons().first()->parentWidget())->setVisible(false);
+        language->buttons().first()->parentWidget()->hide();
+    }
     if (!recognitionFeaturesEnabled()) {
         for (auto group : {source, ocrDevice, ocrLanguage, language})
             for (auto button : group->buttons()) {
@@ -2389,7 +2453,8 @@ QWidget *MainWindow::createSettingsPage() {
     for (const auto &tool : tools)
         pathRow("tools/" + tool, tool, toolPath(m_settings, tool), false);
     if (recognitionFeaturesEnabled()) {
-        pathRow("lyrics/alignmentModel", "已有歌词对齐模型",
+        if (alignmentFeaturesEnabled())
+            pathRow("lyrics/alignmentModel", "已有歌词对齐模型",
                 m_settings->value("lyrics/alignmentModel", QDir(resourceRoot()).filePath("models/small.pt"))
                     .toString(),
                 false);

@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-25",
+  "features": [
+    "All online candidates, subtitle OCR, lyric alignment and imported LRC results are recorded in the recognition queue",
+    "Queue sequence numbers and acquisition source IDs",
+    "Traditional Chinese to Simplified Chinese enabled by default; originals retained",
+    "Full and online-only editions share the result queue"
+  ],
+  "tests": [
+    {
+      "report": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\lyric-queue-conversion\\lyric-queue-conversion-tests.xml",
+      "groups": 4,
+      "failures": 0
+    },
+    {
+      "report": "D:\\PC\\Project\\Qt\\bilibili_mp3\\.cache\\lyric-queue-conversion\\lyric-queue-conversion-lite-tests.xml",
+      "groups": 1,
+      "failures": 0
+    }
+  ],
+  "artifacts": {
+    "full": {
+      "path": "D:\\PC\\Project\\Qt\\bilibili_mp3\\build\\BiliWave.exe",
+      "bytes": 2374764,
+      "sha256": "a5e3cd105f1cff384a939fb9ffb166d281a496332d145959544e035d2975712c"
+    },
+    "lite": {
+      "path": "D:\\PC\\Project\\Qt\\bilibili_mp3\\build-lite\\BiliWave.exe",
+      "bytes": 2343106,
+      "sha256": "c7c493cc55d9f95be08748434d77ba0df7c665e7bc354d39f6ec58ce944a6fd0"
+    },
+    "debug": {
+      "path": "D:\\PC\\Project\\Qt\\bilibili_mp3\\build-debug\\BiliWave.exe",
+      "bytes": 32923474,
+      "sha256": "03d0b5f50b00992180598339825cc27b1dcd510c93d95fa0daa870a45c3c46c1"
+    }
+  }
+}

@@ -68,6 +68,57 @@ class RedesignTests : public QObject {
         }
     }
   private slots:
+    void onlineResultsAndSimplificationSetting() {
+        QTemporaryDir dir(QDir::current().filePath("online-results-ui-XXXXXX"));
+        Library library(dir.filePath("data"));
+        QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+        settings.setValue("lyrics/autoFetch", false);
+        settings.setValue("windows/showFloat", false);
+        settings.setValue("windows/showLyrics", false);
+        MainWindow window(&library, &settings);
+        window.show();
+        const auto id = library.addTrack(
+            {{"title", "歌词结果验证"}, {"artist", "测试歌手"}, {"path", "test.flac"}, {"staged", 1}});
+        admitTrack(window, id);
+        window.lyrics()->cancel();
+        window.navigate(3);
+        auto queue = window.findChild<LyricQueue *>();
+        QVERIFY(queue->isVisible());
+        const QVariantMap candidate{{"id", 12345},
+                                    {"provider", "LRCLIB"},
+                                    {"trackName", "歌词结果验证"},
+                                    {"artistName", "测试歌手"},
+                                    {"syncedLyrics", "[00:01.000]這是愛與夢想\n[00:03.000]讓音樂繼續"},
+                                    {"sourceUrl", "https://lrclib.net/api/get/12345"}};
+        window.lyrics()->candidates(
+            id, {candidate, {{"id", 67890}, {"trackName", "纯文字版本"}, {"plainLyrics", "這是純文字版本"}}});
+        QCOMPARE(queue->count(), 2);
+        window.lyrics()->useCandidate(id, candidate, true);
+        QCOMPARE(queue->count(), 2);
+        QCOMPARE(queue->taskState(0), QString("已应用"));
+        auto timeline = window.findChild<QListWidget *>("timedLyricPreview");
+        auto displayed = [timeline] {
+            return timeline->itemWidget(timeline->item(0))->findChild<QLabel *>()->text();
+        };
+        QVERIFY(displayed().contains("这是爱与梦想"));
+        window.navigate(4);
+        auto simplify = window.findChild<QCheckBox *>("settingsAutoSimplifyChinese");
+        QVERIFY(simplify && simplify->isVisible() && simplify->isChecked());
+        simplify->click();
+        QVERIFY(!settings.value("lyrics/autoSimplifyChinese", true).toBool());
+        QVERIFY(displayed().contains("這是愛與夢想"));
+        simplify->click();
+        QVERIFY(displayed().contains("这是爱与梦想"));
+        QSettings saved(settings.fileName(), QSettings::IniFormat);
+        QVERIFY(saved.value("lyrics/autoSimplifyChinese", false).toBool());
+        QDir screenshots(resourceRoot() + "/docs/screenshots");
+        screenshots.mkpath(".");
+        QCoreApplication::processEvents();
+        QVERIFY(window.grab().save(screenshots.filePath("automatic-simplified-chinese.png")));
+        window.navigate(3);
+        QCoreApplication::processEvents();
+        QVERIFY(window.grab().save(screenshots.filePath("lyric-results-queue.png")));
+    }
     void duckingSettingsPreserveBaseVolumeAndPersist() {
         QTemporaryDir dir(QDir::current().filePath("ducking-ui-XXXXXX"));
         Library library(dir.filePath("data"));
@@ -955,7 +1006,7 @@ class RedesignTests : public QObject {
         QTest::mouseDClick(jobs->viewport(), Qt::LeftButton, Qt::NoModifier,
                            jobs->visualItemRect(jobs->item(0)).center());
         QCOMPARE(selector->currentData().toLongLong(), second);
-        library.setLyrics(second, "[00:00.00]Привет, мир!\n[00:00.00]你好，世界！\n[00:04.00]", "测试");
+        library.setWorkbenchLyrics(second, "[00:00.00]Привет, мир!\n[00:00.00]你好，世界！\n[00:04.00]", "测试");
         QCOMPARE(window.findChild<QListWidget *>("timedLyricPreview")->count(), 2);
         window.findChild<QPushButton *>("commitWithoutLyrics")->click();
         QCOMPARE(window.findChild<QLabel *>("libraryImportStatus")->text(), QString("已导入乐库"));
@@ -1055,22 +1106,22 @@ class RedesignTests : public QObject {
         QCOMPARE(jobs->count(), 2);
         QVERIFY(!window.findChild<QPushButton *>("openLyricWorkflow"));
         QVERIFY(!window.findChild<QPushButton *>("enqueueWorkbenchLyrics"));
-        QCOMPARE(window.findChild<QComboBox *>("localLyricMethod")->count(), 2);
+        QCOMPARE(window.findChild<QComboBox *>("localLyricMethod")->count(), alignmentFeaturesEnabled() ? 2 : 1);
         const auto id =
             library.addTrack({{"title", "测试歌曲"}, {"path", dir.filePath("download.flac")}, {"staged", 1}});
         auto selector = window.findChild<QComboBox *>("lyricTrackSelector");
         QCOMPARE(selector->currentData().toLongLong(), 0);
         admitTrack(window, id);
         QCOMPARE(selector->currentData().toLongLong(), id);
-        library.setLyrics(id, "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙", "测试");
+        library.setWorkbenchLyrics(id, "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙", "测试");
         window.findChild<QPushButton *>("lyricLine1_0")->click();
-        QCOMPARE(Lrc::parse(library.track(id).value("lrc").toString())[1].ms, 1900);
+        QCOMPARE(Lrc::parse(library.workbenchTrack(id).value("lrc").toString())[1].ms, 1900);
         QVERIFY(
             window.findChild<QListWidget *>("timedLyricPreview")->item(1)->toolTip().startsWith("00:01.900"));
         window.findChild<QPushButton *>("lyricLine1_1")->click();
-        QCOMPARE(Lrc::parse(library.track(id).value("lrc").toString())[1].ms, 2000);
+        QCOMPARE(Lrc::parse(library.workbenchTrack(id).value("lrc").toString())[1].ms, 2000);
         window.findChild<QPushButton *>("lyricLine0_2")->click();
-        auto lines = Lrc::parse(library.track(id).value("lrc").toString());
+        auto lines = Lrc::parse(library.workbenchTrack(id).value("lrc").toString());
         QCOMPARE(lines.size(), 2);
         QCOMPARE(lines[0].text, QString("乙"));
         QCOMPARE(lines[0].ms, 2000);
@@ -1096,7 +1147,7 @@ class RedesignTests : public QObject {
             menu->close();
         });
         timeline->customContextMenuRequested(timeline->visualItemRect(timeline->item(0)).center());
-        lines = Lrc::parse(library.track(id).value("lrc").toString());
+        lines = Lrc::parse(library.workbenchTrack(id).value("lrc").toString());
         QCOMPARE(lines.size(), 3);
         QCOMPARE(lines[1].text, QString("新句"));
         QCOMPARE(lines[1].ms, 2500);
@@ -1108,11 +1159,11 @@ class RedesignTests : public QObject {
         window.lyrics()->candidates(id, candidates);
         window.findChild<QPushButton *>("useLyricCandidate")->click();
         window.findChild<QPushButton *>("matchLyrics")->click();
-        QVERIFY(library.track(id).value("lrc").toString().contains("版本1"));
+        QVERIFY(library.workbenchTrack(id).value("lrc").toString().contains("版本1"));
         window.findChild<QPushButton *>("matchLyrics")->click();
-        QVERIFY(library.track(id).value("lrc").toString().contains("版本2"));
+        QVERIFY(library.workbenchTrack(id).value("lrc").toString().contains("版本2"));
         window.findChild<QPushButton *>("matchLyrics")->click();
-        QVERIFY(library.track(id).value("lrc").toString().contains("版本2"));
+        QVERIFY(library.workbenchTrack(id).value("lrc").toString().contains("版本2"));
         QDir screenshots(resourceRoot() + "/docs/screenshots");
         screenshots.mkpath(".");
         QCoreApplication::processEvents();
@@ -1122,7 +1173,7 @@ class RedesignTests : public QObject {
         window.findChild<QPushButton *>("realignLyricCandidate")->hide();
         for (auto edit : window.findChildren<QPlainTextEdit *>())
             edit->hide();
-        library.setLyrics(id, "[00:01.000]第一句歌词\n[00:04.000]下一句歌词\n[00:08.000]最后一句", "测试");
+        library.setWorkbenchLyrics(id, "[00:01.000]第一句歌词\n[00:04.000]下一句歌词\n[00:08.000]最后一句", "测试");
         QTest::qWait(50);
         const auto cell = timeline->itemWidget(timeline->item(0));
         QVERIFY(cell->height() >= 30);
@@ -1462,8 +1513,10 @@ class RedesignTests : public QObject {
         QVERIFY(window.findChild<QPushButton *>("localLyricOption0")->isVisible());
         QCOMPARE(localMethod->currentData().toInt(), 1);
         QCOMPARE(window.findChild<QPushButton *>("matchLyrics")->text(), QString("识别字幕"));
-        localMethod->setCurrentIndex(1);
-        QCOMPARE(window.findChild<QPushButton *>("matchLyrics")->text(), QString("导入歌词"));
+        if (alignmentFeaturesEnabled()) {
+            localMethod->setCurrentIndex(1);
+            QCOMPARE(window.findChild<QPushButton *>("matchLyrics")->text(), QString("导入歌词"));
+        }
         lyricSource->setCurrentIndex(2);
         QCoreApplication::processEvents();
         QCOMPARE(options->size(), optionsSize);
@@ -1473,10 +1526,12 @@ class RedesignTests : public QObject {
         window.findChild<QPushButton *>("lyricCategory1")->click();
         QVERIFY(window.findChild<QPushButton *>("lyricCategory1")->isChecked());
         QVERIFY(!window.findChild<QPushButton *>("lyricCategory2")->isChecked());
+        if (alignmentFeaturesEnabled()) {
         window.findChild<QPushButton *>("localLyricOption1")->click();
         QCOMPARE(localMethod->currentData().toInt(), 0);
         QVERIFY(window.findChild<QPushButton *>("localLyricOption1")->isChecked());
         QVERIFY(!window.findChild<QPushButton *>("localLyricOption0")->isChecked());
+        }
         window.findChild<QPushButton *>("lyricCategory2")->click();
         const QVariantMap result{{"bvid", "BV1bK411W797"},
                                  {"title", "待收录歌曲"},
@@ -1544,7 +1599,7 @@ class RedesignTests : public QObject {
         window.findChild<QPushButton *>("commitWithLyrics")->click();
         QCOMPARE(library.tracks().size(), 5);
         QCOMPARE(library.stagedTracks().size(), 1);
-        library.setLyrics(pending, "[00:00.00]已配置歌词", "测试");
+        library.setWorkbenchLyrics(pending, "[00:00.00]已配置歌词", "测试");
         QCOMPARE(library.tracks().size(), 6);
         QVERIFY(library.stagedTracks().isEmpty());
         window.player()->setQueue({});
@@ -1790,7 +1845,7 @@ class RedesignTests : public QObject {
         QCOMPARE(preview->count(), 3);
         auto offset = window.findChild<QSpinBox *>("lyricTimeOffset");
         offset->setValue(500);
-        QCOMPARE(library.track(workbenchSong).value("lyric_offset").toInt(), 500);
+        QCOMPARE(library.workbenchTrack(workbenchSong).value("lyric_offset").toInt(), 500);
         QList<QVariantMap> candidates{
             {{"trackName", "听见微光"},
              {"artistName", "BiliWave"},
@@ -1800,7 +1855,7 @@ class RedesignTests : public QObject {
         auto candidateList = window.findChild<QTreeWidget *>("lyricCandidates");
         QCOMPARE(candidateList->topLevelItemCount(), 1);
         window.findChild<QPushButton *>("useLyricCandidate")->click();
-        QCOMPARE(library.track(workbenchSong).value("lyric_source").toString(), QString("LRCLIB"));
+        QCOMPARE(library.workbenchTrack(workbenchSong).value("lyric_source").toString(), QString("LRCLIB"));
         QCOMPARE(window.player()->currentId(), workbenchSong);
         QTRY_VERIFY_WITH_TIMEOUT(window.player()->media()->duration() > 11000, 15000);
         window.player()->media()->pause();

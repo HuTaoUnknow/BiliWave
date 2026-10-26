@@ -96,6 +96,10 @@ class LyricQueue : public QWidget {
   public:
     LyricQueue(Library *library, QSettings *settings, QWidget *parent = nullptr);
     int enqueue(qint64 track, QJsonObject config, LyricJob *running = nullptr);
+    void addOnlineResults(qint64 track, const QList<QVariantMap> &candidates);
+    int addResult(qint64 track, const QJsonObject &result, const QString &operation, bool applied = false);
+    void markApplied(qint64 track, const QString &lrc, const QString &source);
+    void reloadTextSettings();
     bool running() const;
     bool activeFor(qint64 track) const;
     void cancelTask(int index);
@@ -112,6 +116,7 @@ class LyricQueue : public QWidget {
   private:
     struct Task {
         QString key;
+        quint64 number = 0;
         qint64 track;
         QString title, state, message;
         QJsonObject config, result;
@@ -119,6 +124,7 @@ class LyricQueue : public QWidget {
         int percent = -1;
     };
     void startNext();
+    int appendTask(Task task);
     void attach(int index, LyricJob *job);
     void refresh();
     void review();
@@ -126,6 +132,7 @@ class LyricQueue : public QWidget {
     Library *m_library;
     QSettings *m_settings;
     QList<Task> m_tasks;
+    quint64 m_nextNumber = 0;
     QListWidget *m_list;
     QLabel *m_status, *m_runningStatus;
     QProgressBar *m_progress;
@@ -173,7 +180,7 @@ class LyricWizard : public QDialog {
     QComboBox *m_method, *m_language;
     QLineEdit *m_video, *m_title, *m_artist;
     QDoubleSpinBox *m_margins[4], *m_interval, *m_previewTime, *m_changeThreshold, *m_textSimilarity;
-    QDoubleSpinBox *m_spaceProbability;
+    QDoubleSpinBox *m_gapSensitivity;
     QPlainTextEdit *m_text, *m_result;
     QPlainTextEdit *m_frameResult;
     QLabel *m_step, *m_status;

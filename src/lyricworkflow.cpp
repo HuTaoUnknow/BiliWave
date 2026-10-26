@@ -268,6 +268,8 @@ LyricJob::~LyricJob() {
 #endif
 }
 bool LyricJob::start(QJsonObject config) {
+    if (config["operation"].toString() == "align" && !alignmentFeaturesEnabled())
+        return false;
     if (!recognitionFeaturesEnabled()) {
         emit finished({{"ok", false}, {"error", "在线版不提供本机识别或导入"}});
         return false;
@@ -307,16 +309,12 @@ bool LyricJob::start(QJsonObject config) {
     m_timeout.start(7200000);
     return true;
 }
-static double ocrSpaceProbability(QSettings *settings) {
-    if (!settings->contains("lyrics/ocrSpaceProbability")) {
-        auto weight = settings->value("lyrics/ocrSpaceWeight", 1.).toDouble();
-        if (!std::isfinite(weight) || weight <= 0)
-            weight = 1.;
-        const auto probability =
-            qRound(qBound(0., .5 + .5 * std::log(weight) / std::log(20.), 1.) * 1000.) / 1000.;
-        settings->setValue("lyrics/ocrSpaceProbability", probability);
-    }
-    const auto value = settings->value("lyrics/ocrSpaceProbability", .5).toDouble();
+static double ocrGapSensitivity(QSettings *settings) {
+    // The old model-probability control has different semantics. New geometric
+    // sensitivity starts at its own neutral default instead of reusing 100%.
+    if (!settings->contains("lyrics/ocrGapSensitivity"))
+        settings->setValue("lyrics/ocrGapSensitivity", .5);
+    const auto value = settings->value("lyrics/ocrGapSensitivity", .5).toDouble();
     return std::isfinite(value) ? qBound(0., value, 1.) : .5;
 }
 QJsonObject LyricJob::prepareConfig(QSettings *settings, QJsonObject config) {
@@ -333,9 +331,9 @@ QJsonObject LyricJob::prepareConfig(QSettings *settings, QJsonObject config) {
     for (auto it = defaults.begin(); it != defaults.end(); ++it)
         if (!config.contains(it.key()))
             config[it.key()] = it.value();
-    if (!config.contains("ocr_space_probability") && !config.contains("ocr_space_weight") &&
-        !config.contains("ocr_space_min_probability"))
-        config["ocr_space_probability"] = ocrSpaceProbability(settings);
+    if (!config.contains("ocr_gap_sensitivity") && !config.contains("ocr_space_probability") &&
+        !config.contains("ocr_space_weight") && !config.contains("ocr_space_min_probability"))
+        config["ocr_gap_sensitivity"] = ocrGapSensitivity(settings);
     return config;
 }
 
@@ -372,6 +370,7 @@ void setLyricButtonBusy(QPushButton *button, bool busy) {
 
 LyricQueue::LyricQueue(Library *library, QSettings *settings, QWidget *parent)
     : QWidget(parent), m_library(library), m_settings(settings) {
+    m_library->setAutoSimplifyLyrics(m_settings->value("lyrics/autoSimplifyChinese", true).toBool());
     setObjectName("lyricTaskQueue");
     setMinimumWidth(210);
     auto layout = new QVBoxLayout(this);
@@ -450,7 +449,9 @@ bool LyricQueue::activeFor(qint64 track) const {
 int LyricQueue::enqueue(qint64 track, QJsonObject config, LyricJob *job) {
     if (!recognitionFeaturesEnabled())
         return -1;
-    const auto song = m_library->track(track);
+    if (config["operation"].toString() == "align" && !alignmentFeaturesEnabled())
+        return -1;
+    const auto song = m_library->workbenchTrack(track);
     if (song.isEmpty())
         return -1;
     Task task;
@@ -459,7 +460,16 @@ int LyricQueue::enqueue(qint64 track, QJsonObject config, LyricJob *job) {
     task.title = song.value("title").toString();
     task.state = job ? "运行中" : "等待中";
     task.config = LyricJob::prepareConfig(m_settings, config);
-    task.config["baseline_lrc"] = song.value("lrc").toString();
+    task.config["baseline_lrc"] = song.value("raw_lrc").toString();
+    const int index = appendTask(task);
+    if (job)
+        attach(index, job);
+    refresh();
+    QTimer::singleShot(0, this, &LyricQueue::startNext);
+    return index;
+}
+int LyricQueue::appendTask(Task task) {
+    task.number = ++m_nextNumber;
     m_tasks.append(task);
     const int index = int(m_tasks.size()) - 1;
     auto item = new QListWidgetItem(m_list);
@@ -479,7 +489,7 @@ int LyricQueue::enqueue(qint64 track, QJsonObject config, LyricJob *job) {
     remove->setFixedSize(25, 25);
     remove->setStyleSheet("padding:0;");
     row->addWidget(remove);
-    item->setSizeHint(QSize(0, 66));
+    item->setSizeHint(QSize(0, 92));
     m_list->setItemWidget(item, cell);
     connect(remove, &QPushButton::clicked, this, [this, key = task.key] {
         for (int i = 0; i < m_tasks.size(); ++i)
@@ -489,14 +499,82 @@ int LyricQueue::enqueue(qint64 track, QJsonObject config, LyricJob *job) {
             }
     });
     m_list->setCurrentRow(index);
-    if (job)
-        attach(index, job);
     refresh();
-    QTimer::singleShot(0, this, &LyricQueue::startNext);
     return index;
 }
+int LyricQueue::addResult(qint64 track, const QJsonObject &result, const QString &operation, bool applied) {
+    const auto song = m_library->workbenchTrack(track);
+    if (song.isEmpty() || !lyricFeaturesEnabled())
+        return -1;
+    Task task;
+    task.key = QUuid::createUuid().toString();
+    task.track = track;
+    task.title = song.value("title").toString();
+    task.config = {{"operation", operation}, {"baseline_lrc", song.value("raw_lrc").toString()}};
+    task.result = result;
+    const bool timed = !Lrc::parse(result["lrc"].toString()).isEmpty();
+    task.state = !result["ok"].toBool() ? "失败" : applied ? "已应用" : timed ? "待应用" : "仅文本";
+    task.percent = result["ok"].toBool() ? 100 : -1;
+    task.message = !result["ok"].toBool() ? result["error"].toString()
+                   : timed                ? "可查看歌词与时间轴，再应用到原歌曲。"
+                                          : "此版本只有歌词文字，没有时间轴。";
+    const int index = appendTask(task);
+    emit taskFinished(index);
+    return index;
+}
+void LyricQueue::addOnlineResults(qint64 track, const QList<QVariantMap> &candidates) {
+    const int first = int(m_tasks.size());
+    for (const auto &candidate : candidates) {
+        const auto lrc = candidate.value("syncedLyrics").toString();
+        const auto plain = candidate.value("plainLyrics").toString();
+        if (lrc.trimmed().isEmpty() && plain.trimmed().isEmpty())
+            continue;
+        const auto provider = candidate.value("provider", "LRCLIB").toString();
+        const auto url = candidate.value("sourceUrl").toString();
+        addResult(track,
+                  {{"ok", true},
+                   {"lrc", lrc},
+                   {"text", plain},
+                   {"source", url.isEmpty() ? provider : provider + " · " + url},
+                   {"provider", provider},
+                   {"source_id", candidate.value("id").toString()},
+                   {"source_url", url},
+                   {"candidate_title", candidate.value("trackName").toString()},
+                   {"candidate_artist", candidate.value("artistName").toString()},
+                   {"score", QJsonValue::fromVariant(candidate.value("score"))},
+                   {"difference", QJsonValue::fromVariant(candidate.value("difference"))}},
+                  "online");
+    }
+    if (first < m_tasks.size())
+        m_list->setCurrentRow(first);
+}
+void LyricQueue::markApplied(qint64 track, const QString &lrc, const QString &source) {
+    for (int i = m_tasks.size() - 1; i >= 0; --i) {
+        auto &task = m_tasks[i];
+        if (task.track == track && task.result["lrc"].toString() == lrc &&
+            task.result["source"].toString() == source) {
+            task.state = "已应用";
+            m_list->setCurrentRow(i);
+            refresh();
+            return;
+        }
+    }
+    addResult(track, {{"ok", true}, {"lrc", lrc}, {"source", source}}, "lrc", true);
+}
+void LyricQueue::reloadTextSettings() {
+    refresh();
+}
 QJsonObject LyricQueue::taskResult(int index) const {
-    return index >= 0 && index < m_tasks.size() ? m_tasks[index].result : QJsonObject();
+    if (index < 0 || index >= m_tasks.size())
+        return {};
+    auto result = m_tasks[index].result;
+    const bool simplify = m_settings->value("lyrics/autoSimplifyChinese", true).toBool();
+    result["raw_lrc"] = result["lrc"];
+    result["raw_text"] = result["text"];
+    result["lrc"] = Lrc::simplifiedChinese(result["lrc"].toString(), simplify);
+    result["text"] = Lrc::simplifiedChinese(result["text"].toString(), simplify);
+    result["queue_number"] = qint64(m_tasks[index].number);
+    return result;
 }
 QString LyricQueue::taskState(int index) const {
     return index >= 0 && index < m_tasks.size() ? m_tasks[index].state : QString();
@@ -587,12 +665,31 @@ void LyricQueue::refresh() {
     for (int i = 0; i < m_tasks.size(); ++i) {
         const auto &task = m_tasks[i];
         const auto operation = task.config["operation"].toString();
-        const auto method = operation == "ocr" ? "识别字幕" : "歌词时间匹配";
-        const auto caption = task.title + "\n" + method + " · " + task.state;
+        const QString method = operation == "online" ? "线上匹配"
+                               : operation == "ocr"  ? "识别字幕"
+                               : operation == "lrc"  ? "导入 LRC"
+                                                     : "歌词时间匹配";
+        QString source = task.result["provider"].toString();
+        if (source.isEmpty())
+            source = task.result["source"].toString(task.config["source"].toString(method));
+        const auto sourceId = task.result["source_id"].toString();
+        if (!sourceId.isEmpty())
+            source += " #" + sourceId;
+        const auto video = task.config["video"].toString();
+        const auto score = task.result["score"].isDouble()
+                               ? QString(" · 匹配度 %1%").arg(task.result["score"].toInt())
+                               : QString();
+        const auto caption = QString("#%1 · %2\n%3 · %4\n来源：%5")
+                                 .arg(task.number)
+                                 .arg(task.title, method, task.state, source);
         auto cell = m_list->itemWidget(m_list->item(i));
         cell->findChild<QLabel *>("queuedTaskText")->setText(caption);
-        m_list->item(i)->setToolTip(caption);
+        m_list->item(i)->setToolTip(caption + "\n" + task.result["source_url"].toString() + "\n" +
+                                    task.result["candidate_title"].toString() + " / " +
+                                    task.result["candidate_artist"].toString() + score + "\n" + video);
         m_list->item(i)->setData(Qt::UserRole, task.track);
+        m_list->item(i)->setData(Qt::UserRole + 1, qint64(task.number));
+        m_list->item(i)->setData(Qt::UserRole + 2, source);
     }
     const int index = m_list->currentRow();
     const bool selected = index >= 0 && index < m_tasks.size();
@@ -600,8 +697,10 @@ void LyricQueue::refresh() {
     m_status->setText(selected ? m_tasks[index].message : QString());
     m_cancelButton->setEnabled(selected);
     m_cancelButton->setText(state == "等待中" || state == "运行中" ? "取消" : "删除");
-    m_retryButton->setEnabled(state == "失败" || state == "已取消");
-    m_reviewButton->setEnabled(state == "待应用" || state == "已应用");
+    m_retryButton->setEnabled(recognitionFeaturesEnabled() && selected &&
+                              m_tasks[index].config["operation"] != "online" &&
+                              (state == "失败" || state == "已取消"));
+    m_reviewButton->setEnabled(state == "待应用" || state == "已应用" || state == "仅文本");
     int active = -1, waiting = 0;
     for (int i = 0; i < m_tasks.size(); ++i) {
         if (m_tasks[i].state == "运行中")
@@ -623,7 +722,7 @@ void LyricQueue::refresh() {
     } else {
         m_progress->setProperty("trackId", 0);
         m_progress->setRange(0, 100);
-        const bool complete = selected && (state == "待应用" || state == "已应用");
+        const bool complete = selected && (state == "待应用" || state == "已应用" || state == "仅文本");
         m_progress->setValue(complete ? 100 : 0);
         m_progress->setFormat(waiting ? "等待执行" : complete ? "100% · 已完成" : "等待任务");
         m_runningStatus->clear();
@@ -634,6 +733,9 @@ void LyricQueue::review() {
     if (index < 0 || !m_tasks[index].result["ok"].toBool())
         return;
     const auto track = m_tasks[index].track;
+    const auto result = taskResult(index);
+    const auto key = m_tasks[index].key;
+    const bool timed = !Lrc::parse(result["lrc"].toString()).isEmpty();
     QDialog dialog(this);
     dialog.setObjectName("queuedLyricReview");
     dialog.setWindowTitle(m_tasks[index].title + " · 检查歌词");
@@ -644,9 +746,23 @@ void LyricQueue::review() {
     auto heading = new QLabel(m_tasks[index].title + " · 检查歌词");
     heading->setObjectName("section");
     layout->addWidget(heading);
-    auto summary = new QLabel(QString("%1 · %2 句歌词 · 检查后应用到原歌曲")
-                                  .arg(m_tasks[index].state)
-                                  .arg(Lrc::parse(m_tasks[index].result["lrc"].toString()).size()));
+    auto origin = new QLabel(
+        QString("#%1 · 来源：%2%3\n%4 / %5")
+            .arg(m_tasks[index].number)
+            .arg(result["source"].toString(),
+                 result["source_id"].toString().isEmpty() ? QString()
+                                                          : " · 记录 #" + result["source_id"].toString(),
+                 result["candidate_title"].toString(), result["candidate_artist"].toString()));
+    origin->setTextFormat(Qt::PlainText);
+    origin->setWordWrap(true);
+    origin->setObjectName("queuedLyricOrigin");
+    if (result["score"].isDouble())
+        origin->setText(origin->text() + QString(" · 匹配度 %1%").arg(result["score"].toInt()));
+    if (result["difference"].isDouble())
+        origin->setText(origin->text() +
+                        QString(" · 时长差 %1s").arg(result["difference"].toDouble(), 0, 'f', 1));
+    layout->addWidget(origin);
+    auto summary = new QLabel;
     summary->setObjectName("muted");
     layout->addWidget(summary);
     auto warning = new QPlainTextEdit;
@@ -656,12 +772,15 @@ void LyricQueue::review() {
     QStringList warnings;
     for (const auto &value : m_tasks[index].result["warnings"].toArray())
         warnings << value.toString();
-    if (m_library->track(track).value("lrc").toString() != m_tasks[index].config["baseline_lrc"].toString())
+    if (m_library->workbenchTrack(track).value("raw_lrc").toString() !=
+        m_tasks[index].config["baseline_lrc"].toString())
         warnings.prepend("此歌曲的歌词在任务提交后有过修改；应用将替换目前版本。");
     warning->setPlainText(warnings.join('\n'));
     warning->setVisible(!warnings.isEmpty());
     layout->addWidget(warning);
-    auto editor = new QPlainTextEdit(m_tasks[index].result["lrc"].toString());
+    const auto initial = timed ? result["lrc"].toString() : result["text"].toString();
+    auto editor = new QPlainTextEdit(initial);
+    editor->setReadOnly(!recognitionFeaturesEnabled());
     editor->setObjectName("queuedLyricResult");
     auto tabs = new QTabWidget;
     tabs->setObjectName("queuedLyricReviewTabs");
@@ -690,8 +809,11 @@ void LyricQueue::review() {
                                   .arg(line.ms / 1000 % 60, 2, 10, QChar('0'))
                                   .arg(line.ms % 1000, 3, 10, QChar('0'));
             auto item = new QTreeWidgetItem(lines, {time, line.text, {}});
-            item->setFlags(item->flags() | Qt::ItemIsEditable);
+            if (recognitionFeaturesEnabled())
+                item->setFlags(item->flags() | Qt::ItemIsEditable);
             item->setToolTip(1, line.text);
+            if (!recognitionFeaturesEnabled())
+                continue;
             auto cell = new QWidget;
             auto actions = new QHBoxLayout(cell);
             actions->setContentsMargins(2, 2, 2, 2);
@@ -752,22 +874,33 @@ void LyricQueue::review() {
     });
     populate();
     tabs->addTab(lines, "逐句检查");
-    tabs->addTab(editor, "LRC 文本");
+    tabs->addTab(editor, timed ? "LRC 文本" : "歌词文字");
+    if (!timed) {
+        tabs->setTabVisible(0, false);
+        tabs->setCurrentIndex(1);
+        summary->setText("只有歌词文字，没有时间轴。");
+    }
+    if (!recognitionFeaturesEnabled()) {
+        lines->setColumnHidden(2, true);
+        lines->setHeaderLabels({"时间", "歌词", ""});
+    }
     layout->addWidget(tabs, 1);
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close);
     buttons->button(QDialogButtonBox::Apply)->setText("应用歌词");
+    buttons->button(QDialogButtonBox::Apply)->setEnabled(timed);
     buttons->button(QDialogButtonBox::Apply)->setProperty("primary", true);
     buttons->button(QDialogButtonBox::Close)->setText("关闭");
-    if (m_tasks[index].result["timing_kind"].toString() == "video_caption" &&
+    if (alignmentFeaturesEnabled() && (!timed || result["timing_kind"].toString() == "video_caption") &&
         m_library->track(track).value("storage").toString() != "url" &&
         QFileInfo::exists(m_library->track(track).value("path").toString())) {
-        auto calibrate = buttons->addButton("按音频校准…", QDialogButtonBox::ActionRole);
+        auto calibrate =
+            buttons->addButton(timed ? "按音频校准…" : "按音频匹配时间…", QDialogButtonBox::ActionRole);
         calibrate->setObjectName("calibrateCaptionTiming");
         calibrate->setToolTip("先核对字幕文字和演唱顺序，再用同源字幕时间定位每句，按本地音频校准");
         connect(calibrate, &QPushButton::clicked, &dialog, [&] {
             LyricWizard wizard(m_library, m_settings, track, editor->toPlainText(), &dialog);
             wizard.setQueue(this);
-            wizard.findChild<QCheckBox *>("useExistingTimingHints")->setChecked(true);
+            wizard.findChild<QCheckBox *>("useExistingTimingHints")->setChecked(timed);
             if (wizard.exec() == QDialog::Accepted)
                 dialog.accept();
         });
@@ -782,14 +915,24 @@ void LyricQueue::review() {
             warning->show();
             return;
         }
-        if (!m_library->setLyrics(track, editor->toPlainText(), m_tasks[index].result["source"].toString())) {
+        int currentIndex = -1;
+        for (int i = 0; i < m_tasks.size(); ++i)
+            if (m_tasks[i].key == key)
+                currentIndex = i;
+        if (currentIndex < 0) {
+            warning->setPlainText("此结果已被移除。");
+            warning->show();
+            return;
+        }
+        const auto stored =
+            editor->toPlainText() == initial ? result["raw_lrc"].toString() : editor->toPlainText();
+        if (!m_library->setWorkbenchLyrics(track, stored, result["source"].toString())) {
             warning->setPlainText("歌曲已不存在或保存失败。");
             warning->show();
             return;
         }
-        m_library->setOffset(track, 0);
-        m_tasks[index].result["lrc"] = editor->toPlainText();
-        m_tasks[index].state = "已应用";
+        m_tasks[currentIndex].result["lrc"] = stored;
+        m_tasks[currentIndex].state = "已应用";
         refresh();
         dialog.accept();
     });
@@ -876,7 +1019,7 @@ LyricWizard::LyricWizard(Library *library, QSettings *settings, qint64 track, co
                    "LRC 可直接使用，也可按当前音频重新匹配。");
     hint->setWordWrap(true);
     localLayout->addWidget(hint);
-    const auto song = m_library->track(m_track);
+    const auto song = m_library->workbenchTrack(m_track);
     auto aiPrompt = new QPlainTextEdit;
     aiPrompt->setObjectName("lyricAiPrompt");
     aiPrompt->setReadOnly(true);
@@ -998,19 +1141,19 @@ LyricWizard::LyricWizard(Library *library, QSettings *settings, qint64 track, co
     videoLayout->addLayout(comparison);
     videoLayout->addLayout(languageRow);
     auto spacing = new QHBoxLayout;
-    spacing->addWidget(new QLabel("空格出现概率"));
-    m_spaceProbability = new QDoubleSpinBox;
-    m_spaceProbability->setObjectName("lyricOcrSpaceProbability");
-    m_spaceProbability->setRange(0, 100);
-    m_spaceProbability->setDecimals(1);
-    m_spaceProbability->setSingleStep(1);
-    m_spaceProbability->setSuffix(" %");
-    m_spaceProbability->setValue(ocrSpaceProbability(settings) * 100.);
-    m_spaceProbability->setMaximumWidth(140);
-    m_spaceProbability->setToolTip(
-        "默认 50% 保持模型原始判断；越高越容易出现空格，越低越少，0% 关闭模型空格。"
-        "这是空格倾向，不是空格占比或识别准确率；100% 也不会强制插入空格。");
-    spacing->addWidget(m_spaceProbability);
+    spacing->addWidget(new QLabel("空格间距敏感度"));
+    m_gapSensitivity = new QDoubleSpinBox;
+    m_gapSensitivity->setObjectName("lyricOcrGapSensitivity");
+    m_gapSensitivity->setRange(0, 100);
+    m_gapSensitivity->setDecimals(1);
+    m_gapSensitivity->setSingleStep(1);
+    m_gapSensitivity->setSuffix(" %");
+    m_gapSensitivity->setValue(ocrGapSensitivity(settings) * 100.);
+    m_gapSensitivity->setMaximumWidth(140);
+    m_gapSensitivity->setToolTip(
+        "默认 50%。越高越敏感，较小的异常大字间距也会判为空格；越低需要更大的间隔。"
+        "按本行正常字距及字高计算阈值，不再放大模型空格概率。0% 是最低敏感度，不是关闭空格。");
+    spacing->addWidget(m_gapSensitivity);
     spacing->addStretch();
     videoLayout->addLayout(spacing);
     auto frameCheck = new QHBoxLayout;
@@ -1200,8 +1343,8 @@ LyricWizard::LyricWizard(Library *library, QSettings *settings, qint64 track, co
         m_frameButton->setEnabled(m_preview->hasImage() && !m_job->busy());
     });
     connect(ocrLanguage, &QComboBox::currentIndexChanged, this, &LyricWizard::invalidateFrameResult);
-    connect(m_spaceProbability, &QDoubleSpinBox::valueChanged, this, [this] {
-        m_settings->setValue("lyrics/ocrSpaceProbability", m_spaceProbability->value() / 100.);
+    connect(m_gapSensitivity, &QDoubleSpinBox::valueChanged, this, [this] {
+        m_settings->setValue("lyrics/ocrGapSensitivity", m_gapSensitivity->value() / 100.);
         invalidateFrameResult();
     });
     connect(m_frameButton, &QPushButton::clicked, this, &LyricWizard::recognizeCurrentFrame);
@@ -1215,7 +1358,8 @@ LyricWizard::LyricWizard(Library *library, QSettings *settings, qint64 track, co
         auto text = c.value("plainLyrics").toString();
         if (text.isEmpty())
             text = plainText(c.value("syncedLyrics").toString());
-        m_text->setPlainText(text);
+        m_text->setPlainText(
+            Lrc::simplifiedChinese(text, m_settings->value("lyrics/autoSimplifyChinese", true).toBool()));
         m_source = "LRCLIB · " + c.value("trackName").toString() + " / " + c.value("artistName").toString();
         m_status->setText(text.left(400));
     });
@@ -1290,6 +1434,11 @@ LyricWizard::LyricWizard(Library *library, QSettings *settings, qint64 track, co
         m_page = 1;
     } else
         m_method->setCurrentIndex(1);
+    if (!alignmentFeaturesEnabled()) {
+        m_method->hide();
+        if (initialText.isEmpty())
+            m_method->setCurrentIndex(1);
+    }
     updatePage();
 }
 void LyricWizard::showEvent(QShowEvent *event) {
@@ -1334,7 +1483,7 @@ void LyricWizard::updatePage() {
     for (auto margin : m_margins)
         margin->setEnabled(!busy || m_operation == "preview");
     findChild<QComboBox *>("lyricOcrLanguage")->setEnabled(!busy);
-    m_spaceProbability->setEnabled(!busy);
+    m_gapSensitivity->setEnabled(!busy);
     m_ocrButton->setEnabled(!busy);
     m_search->setEnabled(!busy && !m_searching);
     m_next->setText(QStringList{"下一步：检查文字", "按音频匹配时间", "应用歌词"}[m_page]);
@@ -1387,11 +1536,12 @@ void LyricWizard::next() {
             m_status->setText("尚未生成有效时间轴，请返回上一步重试。");
             return;
         }
-        if (!m_library->setLyrics(m_track, m_result->toPlainText(), m_source)) {
+        if (!m_library->setWorkbenchLyrics(m_track, m_result->toPlainText(), m_source)) {
             m_status->setText("歌曲已不存在或保存失败。");
             return;
         }
-        m_library->setOffset(m_track, 0);
+        if (m_queue)
+            m_queue->markApplied(m_track, m_result->toPlainText(), m_source);
         accept();
     }
 }
@@ -1403,9 +1553,9 @@ QJsonObject LyricWizard::videoConfig() const {
             {"preview_time", m_previewTime->value()},
             {"interval", m_interval->value()},
             {"ocr_language", findChild<QComboBox *>("lyricOcrLanguage")->currentData().toString()},
-            {"ocr_space_probability", m_spaceProbability->value() / 100.},
-            {"song_title", m_library->track(m_track).value("title").toString()},
-            {"song_artist", m_library->track(m_track).value("artist").toString()},
+            {"ocr_gap_sensitivity", m_gapSensitivity->value() / 100.},
+            {"song_title", m_library->workbenchTrack(m_track).value("title").toString()},
+            {"song_artist", m_library->workbenchTrack(m_track).value("artist").toString()},
             {"change_threshold", m_changeThreshold->value() / 100.},
             {"text_similarity", m_textSimilarity->value() / 100.}};
 }
@@ -1498,7 +1648,7 @@ void LyricWizard::saveOcrSettings() {
     m_settings->setValue("lyrics/ocrLanguage", findChild<QComboBox *>("lyricOcrLanguage")->currentData());
     m_settings->setValue("lyrics/changeThreshold", m_changeThreshold->value());
     m_settings->setValue("lyrics/textSimilarity", m_textSimilarity->value());
-    m_settings->setValue("lyrics/ocrSpaceProbability", m_spaceProbability->value() / 100.);
+    m_settings->setValue("lyrics/ocrGapSensitivity", m_gapSensitivity->value() / 100.);
 }
 void LyricWizard::invalidateFrameResult() {
     m_frameResult->clear();
@@ -1535,6 +1685,8 @@ void LyricWizard::searchOnline() {
                 [this](const QList<QVariantMap> &options, const QString &error) {
                     m_searching = false;
                     updatePage();
+                    if (m_queue)
+                        m_queue->addOnlineResults(m_track, options);
                     for (const auto &c : options) {
                         auto item = new QListWidgetItem(
                             c.value("trackName").toString() + " / " + c.value("artistName").toString() +

@@ -8,6 +8,44 @@
 class CoreTests : public QObject {
     Q_OBJECT
   private slots:
+    void traditionalConversionCoversHouAndPhraseAmbiguity() {
+        QCOMPARE(Lrc::simplifiedChinese("我在門後 假裝你人還沒走"), QString("我在门后 假装你人还没走"));
+        QCOMPARE(Lrc::simplifiedChinese("後來 皇后 之後 後面"), QString("后来 皇后 之后 后面"));
+        QCOMPARE(Lrc::simplifiedChinese("乾淨 乾杯 乾燥 乾隆 乾坤"), QString("干净 干杯 干燥 乾隆 乾坤"));
+        QCOMPARE(Lrc::simplifiedChinese("頭髮 發展 裡面 裏面 臺灣"), QString("头发 发展 里面 里面 台湾"));
+        QCOMPARE(Lrc::simplifiedChinese("㑮"), QString("𫝈"));
+        const QString original = "[00:01.230]我在門後 假裝你人還沒走\n"
+                                 "[00:04.000]Мой мир / Hello world 😀";
+        QCOMPARE(Lrc::simplifiedChinese(original), QString("[00:01.230]我在门后 假装你人还没走\n"
+                                                           "[00:04.000]Мой мир / Hello world 😀"));
+        QCOMPARE(Lrc::simplifiedChinese(original, false), original);
+    }
+    void traditionalLyricsPreserveOriginalAndTiming() {
+        const QString original = "[ti:繁體歌詞]\n[00:01.230]這個世界，愛與夢想\n"
+                                 "[00:02.500]Мой мармеладный, я не права\n"
+                                 "[00:04.000]Hello world 😀\n[00:04.000]讓音樂繼續";
+        const auto converted = Lrc::simplifiedChinese(original);
+        QVERIFY(converted.contains("这个世界，爱与梦想"));
+        QVERIFY(converted.contains("让音乐继续"));
+        QCOMPARE(Lrc::simplifiedChinese(original, false), original);
+        const auto before = Lrc::parse(original), after = Lrc::parse(converted);
+        QCOMPARE(before.size(), after.size());
+        for (int i = 0; i < before.size(); ++i)
+            QCOMPARE(before[i].ms, after[i].ms);
+        QVERIFY(converted.contains("Мой мармеладный, я не права"));
+        QVERIFY(converted.contains("Hello world 😀"));
+        QTemporaryDir dir(QDir::current().filePath("lyric-conversion-test-XXXXXX"));
+        Library library(dir.path());
+        const auto id = library.addTrack({{"title", "测试"}, {"path", "test.wav"}});
+        QVERIFY(library.setLyrics(id, original, "LRCLIB"));
+        QCOMPARE(library.track(id).value("lrc").toString(), converted);
+        QCOMPARE(library.track(id).value("raw_lrc").toString(), original);
+        library.setAutoSimplifyLyrics(false);
+        QCOMPARE(library.track(id).value("lrc").toString(), original);
+        QCOMPARE(library.tracks().first().value("lrc").toString(), original);
+        library.setAutoSimplifyLyrics(true);
+        QCOMPARE(library.tracks().first().value("lrc").toString(), converted);
+    }
     void duplicateQueueEntriesAndReordering() {
         QTemporaryDir dir(QDir::current().filePath("duplicate-queue-XXXXXX"));
         Library library(dir.path());

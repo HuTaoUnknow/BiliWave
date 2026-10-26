@@ -393,6 +393,7 @@ void ImportService::retryFailed() {
 }
 
 LyricService::LyricService(Library *l, QSettings *s, QObject *p) : QObject(p), m_library(l), m_settings(s) {
+    m_library->setAutoSimplifyLyrics(s->value("lyrics/autoSimplifyChinese", true).toBool());
     connect(&m_online, &OnlineLyricsSearch::progress, this, &LyricService::message);
     connect(&m_online, &OnlineLyricsSearch::finished, this,
             [this](const QList<QVariantMap> &options, const QString &error) {
@@ -405,7 +406,7 @@ LyricService::LyricService(Library *l, QSettings *s, QObject *p) : QObject(p), m
                 if (!options.isEmpty()) {
                     emit candidates(m_onlineTrack, options);
                     if (options.first().value("automatic").toBool())
-                        useCandidate(m_onlineTrack, options.first());
+                        useCandidate(m_onlineTrack, options.first(), m_onlineWorkbench);
                     else
                         emit message(
                             error.isEmpty()
@@ -417,7 +418,7 @@ LyricService::LyricService(Library *l, QSettings *s, QObject *p) : QObject(p), m
             });
 }
 LyricService::~LyricService() = default;
-bool LyricService::importFile(qint64 id, const QString &path) {
+bool LyricService::importFile(qint64 id, const QString &path, bool workbench) {
     if (!recognitionFeaturesEnabled())
         return false;
     QFile file(path);
@@ -430,12 +431,15 @@ bool LyricService::importFile(qint64 id, const QString &path) {
         emit message(tr("没有找到 LRC 时间标签，请使用 UTF-8 时间轴歌词"));
         return false;
     }
-    const bool ok = m_library->setLyrics(id, text, "本地 LRC");
-    if (ok)
+    const bool ok = workbench ? m_library->setWorkbenchLyrics(id, text, "本地 LRC")
+                              : m_library->setLyrics(id, text, "本地 LRC");
+    if (ok) {
+        emit resultApplied(id, text, "本地 LRC");
         emit message(tr("已载入本地时间轴歌词"));
+    }
     return ok;
 }
-void LyricService::fetch(qint64 id, bool force, const QString &keywords) {
+void LyricService::fetch(qint64 id, bool force, const QString &keywords, bool workbench) {
     m_online.cancel();
     if (!lyricFeaturesEnabled())
         return;
@@ -443,7 +447,8 @@ void LyricService::fetch(qint64 id, bool force, const QString &keywords) {
     m_onlinePending = false;
     emit activityChanged(matching());
     const auto request = m_request;
-    const auto t = m_library->track(id);
+    m_onlineWorkbench = workbench;
+    const auto t = workbench ? m_library->workbenchTrack(id) : m_library->track(id);
     if (t.isEmpty())
         return;
     if (!force && !Lrc::parse(t.value("lrc").toString()).isEmpty())
@@ -464,13 +469,17 @@ void LyricService::fetchOnline(qint64 id, const QString &keywords) {
     m_onlinePending = true;
     m_onlineTrack = id;
     emit activityChanged(true);
-    m_online.search(m_library->track(id), keywords);
+    m_online.search(m_onlineWorkbench ? m_library->workbenchTrack(id) : m_library->track(id), keywords);
 }
-void LyricService::useCandidate(qint64 id, const QVariantMap &c) {
+void LyricService::useCandidate(qint64 id, const QVariantMap &c, bool workbench) {
     if (!Lrc::parse(c.value("syncedLyrics").toString()).isEmpty()) {
         const auto source = c.value("sourceUrl").toString();
-        m_library->setLyrics(id, c.value("syncedLyrics").toString(),
-                             source.isEmpty() ? QString("LRCLIB") : "LRCLIB · " + source);
+        const auto provider = c.value("provider", "LRCLIB").toString();
+        const auto origin = source.isEmpty() ? provider : provider + " · " + source;
+        if (!(workbench ? m_library->setWorkbenchLyrics(id, c.value("syncedLyrics").toString(), origin)
+                        : m_library->setLyrics(id, c.value("syncedLyrics").toString(), origin)))
+            return;
+        emit resultApplied(id, c.value("syncedLyrics").toString(), origin);
         emit message(tr("已保存 LRCLIB 时间轴歌词"));
     }
 }

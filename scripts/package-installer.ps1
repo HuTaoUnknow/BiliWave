@@ -6,7 +6,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
-$payload = Join-Path $project $(if ($Lite) { 'release-lite' } else { 'release' })
+$payload = Join-Path $project $(if ($Lite) { 'release-lite' } else { 'release-screen' })
 $buildDirectory = if ($Lite) { 'build-lite' } else { 'build' }
 if (-not $Compiler) {
     $Compiler = Join-Path $project '.cache\installer-tools\inno\ISCC.exe'
@@ -25,10 +25,11 @@ if ($Lite) {
         if (Test-Path -LiteralPath (Join-Path $payload $forbidden)) { throw "Forbidden Lite payload: $forbidden" }
     }
 } else {
-    $requiredFiles += @('tools\lyrics-runtime\python.exe','models\small.pt','workers\lyric_worker.py',
+    $requiredFiles += @('tools\lyrics-runtime\python.exe','workers\lyric_worker.py',
         'workers\languages.py','models\ocr\cyrillic_PP-OCRv5_rec_mobile.onnx','models\ocr\latin_PP-OCRv5_rec_mobile.onnx')
 }
-foreach ($obsolete in @('models\ggml-small.bin','tools\whisper-cli.exe')) {
+foreach ($obsolete in @('models\small.pt','models\ggml-small.bin','tools\whisper-cli.exe',
+    'tools\lyrics-runtime\Lib\site-packages\torch','tools\lyrics-runtime\Lib\site-packages\stable_whisper')) {
     if (Test-Path -LiteralPath (Join-Path $payload $obsolete)) { throw "Obsolete transcription payload: $obsolete" }
 }
 foreach ($relative in $requiredFiles) {

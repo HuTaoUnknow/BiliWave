@@ -14,6 +14,7 @@ __pycache__/
 *.log
 /build-lite/
 /release-lite/
+/release-screen/
 /dist/
 /tools/ocr-gpu/
 /models/ocr/

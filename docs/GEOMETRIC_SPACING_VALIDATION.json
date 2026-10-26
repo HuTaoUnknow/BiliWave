@@ -1,0 +1,120 @@
+{
+  "date": "2026-10-25",
+  "parameter": {
+    "label": "空格间距敏感度",
+    "setting": "lyrics/ocrGapSensitivity",
+    "task_field": "ocr_gap_sensitivity",
+    "default_percent": 50,
+    "higher_value": "lower geometric gap threshold",
+    "formula": "T=max(2, g*(3.5-2s), H*(0.42-0.26s)); split if gap>T"
+  },
+  "compatibility": "Explicit old probability/weight fields retain legacy decoding; new sensitivity has a separate default.",
+  "tests": {
+    "worker_regression": 23,
+    "geometry_unit": 8,
+    "qt_workflow": 5,
+    "qt_lite_passed": true
+  },
+  "multilingual": [
+    {
+      "language": "en",
+      "expected": "Hello world again",
+      "actual": "Hello world again"
+    },
+    {
+      "language": "ru",
+      "expected": "Мой мармеладный, я не права",
+      "actual": "Мой мармеладный, я не права"
+    },
+    {
+      "language": "it",
+      "expected": "Una bella canzone",
+      "actual": "Una bella canzone"
+    }
+  ],
+  "chinese_samples": [
+    {
+      "expected": "一",
+      "actual": "一",
+      "recovered": 1
+    },
+    {
+      "expected": "一",
+      "actual": "一",
+      "recovered": 1
+    },
+    {
+      "expected": "我一生只爱你",
+      "actual": "我一生只爱你",
+      "recovered": 0
+    },
+    {
+      "expected": "一年又一年",
+      "actual": "一年又一年",
+      "recovered": 0
+    },
+    {
+      "expected": "唯一的一天",
+      "actual": "唯一的一天",
+      "recovered": 0
+    },
+    {
+      "expected": "一生一世",
+      "actual": "一生一世",
+      "recovered": 0
+    },
+    {
+      "expected": "愿得一人心",
+      "actual": "愿得一人心",
+      "recovered": 0
+    },
+    {
+      "expected": "我在门后一一等你",
+      "actual": "我在门后——等你",
+      "recovered": 0
+    }
+  ],
+  "video": {
+    "lrc": "[00:00.00]一\n[00:02.00]我一生只爱你\n[00:04.00]Hello world again",
+    "stats": {
+      "sampled_frames": 12,
+      "visual_segments": 3,
+      "ocr_calls": 3,
+      "output_lines": 3,
+      "filtered_credits": 0,
+      "init_seconds": 0.726,
+      "ocr_seconds": 0.261,
+      "elapsed_seconds": 1.135
+    }
+  },
+  "deployed_gpu": {
+    "provider": "DmlExecutionProvider",
+    "result": "一",
+    "recovered": 1
+  },
+  "known_limitations": [
+    "Uniform tracking may not provide distinct word gaps.",
+    "Connected 一一 strokes and an em dash can be visually ambiguous; no unconditional text replacement."
+  ],
+  "workers_sha256": {
+    "ocr_geometry.py": "44aabe4a30f8548c98ddde8be5fc7815ab3e93777aad6bace2766457b2ba1fd4",
+    "ocr_spacing.py": "7198a846b2a65d8f360bfd9c924a1c1d93c0f5e3830f4b4419dd4b68a3149bf7",
+    "bilingual.py": "c2388f85ff87aa87f2d14213375152247d1f7419c8f26460f5997fb9141eaf3c",
+    "ocr_backend.py": "f124e2362f56a5ea12a5bb5627350847e22f32730cee8633bf300064e73df2bb",
+    "lyric_worker.py": "2dffbe0f48fdf410b3f1a6326b60d63c77ca12616dbff4964dbff61dfedca5d5"
+  },
+  "artifacts": {
+    "full": {
+      "path": "D:\\PC\\Project\\Qt\\bilibili_mp3\\build\\BiliWave.exe",
+      "sha256": "84d15c8e4d6f5f32bc8170b4c13b77696c9be0ad5b17cfc597f96bdc38e38c2e"
+    },
+    "lite": {
+      "path": "D:\\PC\\Project\\Qt\\bilibili_mp3\\build-lite\\BiliWave.exe",
+      "sha256": "cc7c513a1180df70f4a99c19f80319af07a24be077474e1438e9ecffb3852adc"
+    },
+    "debug": {
+      "path": "D:\\PC\\Project\\Qt\\bilibili_mp3\\build-debug\\BiliWave.exe",
+      "sha256": "4359bc96e867cf8bb94d8d3e2a2b94c888b7384287dc673a57ef48d14589733c"
+    }
+  }
+}

@@ -13,3 +13,9 @@ constexpr bool lyricFeaturesEnabled() {
 constexpr bool recognitionFeaturesEnabled() {
     return lyricFeaturesEnabled() && BILI_ENABLE_RECOGNITION != 0;
 }
+#ifndef BILI_ENABLE_ALIGNMENT
+#define BILI_ENABLE_ALIGNMENT 0
+#endif
+constexpr bool alignmentFeaturesEnabled() {
+    return recognitionFeaturesEnabled() && BILI_ENABLE_ALIGNMENT != 0;
+}

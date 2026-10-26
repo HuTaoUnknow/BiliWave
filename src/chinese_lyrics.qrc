@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/biliwave/chinese">
+    <file alias="TSCharacters.txt">data/opencc/TSCharacters.txt</file>
+    <file alias="TSPhrases.txt">data/opencc/TSPhrases.txt</file>
+  </qresource>
+</RCC>

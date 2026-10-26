@@ -564,7 +564,7 @@ void MainWindow::trackMenu(const QPoint &position) {
     });
     menu.addSeparator();
     if (lyricFeaturesEnabled()) {
-        if (t.value("storage").toString() != "url") {
+        {
             auto workbench = menu.addAction(tr("载入工作台"), this, [this, id] { loadLibraryTrack(id); });
             workbench->setObjectName("loadTrackToWorkbench");
             workbench->setEnabled(!m_workbenchTracks.contains(id));
@@ -728,7 +728,9 @@ void MainWindow::trackMenu(const QPoint &position) {
     menu.exec(view->viewport()->mapToGlobal(position));
 }
 void MainWindow::updateCurrent() {
-    const auto t = m_library->track(m_player.currentId());
+    const auto t = m_previewTrack && m_previewTrack == m_player.currentId()
+                       ? m_library->workbenchTrack(m_previewTrack)
+                       : m_library->track(m_player.currentId());
     if (t.isEmpty()) {
         m_lines.clear();
         m_current->setText(tr("准备好，听一首喜欢的歌"));
@@ -755,7 +757,9 @@ void MainWindow::updateCurrent() {
 void MainWindow::updateLyrics() {
     if (!lyricFeaturesEnabled())
         return;
-    const auto t = m_library->track(m_player.currentId());
+    const auto t = m_previewTrack && m_previewTrack == m_player.currentId()
+                       ? m_library->workbenchTrack(m_previewTrack)
+                       : m_library->track(m_player.currentId());
     const int index = Lrc::indexAt(m_lines, m_player.media()->position() + t.value("lyric_offset").toInt());
     QString current, next;
     if (m_lines.isEmpty()) {

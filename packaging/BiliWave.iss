@@ -1,9 +1,10 @@
 #ifndef AppVersion
-  #define AppVersion "1.10.0"
+  #define AppVersion "1.11.0"
 #endif
 #ifndef PayloadDir
-  #define PayloadDir "..\release"
+  #define PayloadDir "..\release-screen"
 #endif
+
 #ifndef PackageOutputDir
   #define PackageOutputDir "..\dist"
 #endif
@@ -11,10 +12,12 @@
   #define LiteEdition 0
 #endif
 #if Int(LiteEdition)
+  #define EditionTitle "BiliWave 简装版 · 线上匹配"
   #define ProductName "BiliWave Lite"
   #define ProductId "{{EE37A2DA-4D0B-4BCD-97E3-3B3B6141F838}"
   #define PackageName "BiliWave-Lite-" + AppVersion + "-Windows-x64-Setup"
 #else
+  #define EditionTitle "BiliWave 加装版 · 屏幕识别"
   #define ProductName "BiliWave"
   #define ProductId "{{B1A2A5B4-8F18-449F-8E87-DCB27977DDE2}"
   #define PackageName "BiliWave-" + AppVersion + "-Windows-x64-Setup"
@@ -22,7 +25,7 @@
 
 [Setup]
 AppId={#ProductId}
-AppName={#ProductName}
+AppName={#EditionTitle}
 AppVersion={#AppVersion}
 AppVerName={#ProductName} {#AppVersion}
 AppPublisher=BiliWave

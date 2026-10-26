@@ -1,4 +1,4 @@
-"""Adjust CTC space decisions using model evidence, without guessing words."""
+"""Use geometric spacing for new tasks; retain CTC controls for submitted legacy jobs."""
 import math
 
 
@@ -60,4 +60,13 @@ class SpaceAwareDecode:
 
 
 def apply_spacing(recognizer, config):
+    if geometry_mode(config):
+        from ocr_geometry import GeometryRecognizer
+        return GeometryRecognizer(recognizer, config)
     recognizer.postprocess_op = SpaceAwareDecode(recognizer.postprocess_op, config)
+    return recognizer
+
+
+def geometry_mode(config):
+    return "ocr_gap_sensitivity" in config or not any(
+        key in config for key in ("ocr_space_probability", "ocr_space_weight", "ocr_space_min_probability"))
