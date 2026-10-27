@@ -524,7 +524,7 @@ int LyricQueue::addResult(qint64 track, const QJsonObject &result, const QString
 }
 void LyricQueue::addOnlineResults(qint64 track, const QList<QVariantMap> &candidates) {
     const int first = int(m_tasks.size());
-    for (const auto &candidate : candidates) {
+    for (const auto &candidate : candidates.mid(0, 5)) {
         const auto lrc = candidate.value("syncedLyrics").toString();
         const auto plain = candidate.value("plainLyrics").toString();
         if (lrc.trimmed().isEmpty() && plain.trimmed().isEmpty())
@@ -1188,7 +1188,7 @@ LyricWizard::LyricWizard(Library *library, QSettings *settings, qint64 track, co
     form->addRow("歌名", m_title);
     form->addRow("歌手", m_artist);
     onlineLayout->addLayout(form);
-    m_search = new QPushButton("搜索 LRCLIB 歌词（含纯文本）");
+    m_search = new QPushButton("搜索歌词（每批最多 5 个）");
     m_search->setObjectName("searchPlainLyrics");
     onlineLayout->addWidget(m_search);
     m_candidates = new QListWidget;
@@ -1676,15 +1676,16 @@ void LyricWizard::searchOnline() {
         m_status->setText("请填写歌名。");
         return;
     }
-    auto search = findChild<OnlineLyricsSearch *>("wizardOnlineSearch");
+    auto search = findChild<LyricsSourcesSearch *>("wizardOnlineSearch");
     if (!search) {
-        search = new OnlineLyricsSearch(this);
+        search = new LyricsSourcesSearch(this);
         search->setObjectName("wizardOnlineSearch");
-        connect(search, &OnlineLyricsSearch::progress, m_status, &QLabel::setText);
-        connect(search, &OnlineLyricsSearch::finished, this,
+        connect(search, &LyricsSourcesSearch::progress, m_status, &QLabel::setText);
+        connect(search, &LyricsSourcesSearch::finished, this,
                 [this](const QList<QVariantMap> &options, const QString &error) {
                     m_searching = false;
                     updatePage();
+                    m_search->setText("继续搜索（每批最多 5 个）");
                     if (m_queue)
                         m_queue->addOnlineResults(m_track, options);
                     for (const auto &c : options) {
@@ -1708,5 +1709,5 @@ void LyricWizard::searchOnline() {
     auto track = m_library->track(m_track);
     track["title"] = m_title->text().trimmed();
     track["artist"] = m_artist->text().trimmed();
-    search->search(track);
+    search->search(track, {}, LyricsSourcesSearch::selectedSources(m_settings));
 }

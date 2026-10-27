@@ -3,12 +3,14 @@
 #include "theme.h"
 #include "window.h"
 #include <QApplication>
+#include <QActionGroup>
 #include <QBoxLayout>
 #include <QButtonGroup>
 #include <QCollator>
 #include <QColorDialog>
 #include <QDesktopServices>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -21,6 +23,7 @@
 #include <QNetworkReply>
 #include <QPainter>
 #include <QRegularExpression>
+#include <QRandomGenerator>
 #include <QScreen>
 #include <QScrollArea>
 #include <QShortcut>
@@ -586,17 +589,28 @@ void MainWindow::navigate(int page) {
                       subtitles = {"搜索音乐视频，下载原始音轨，校准时间轴歌词。",
                                    "左侧选择歌曲，右侧整理歌单。同一首歌可以收录到多个歌单。",
                                    "选择歌曲或歌单开始播放，当前歌曲固定在队列最下方。",
-                                   "配置歌曲歌词，检查时间轴与后台识别任务。",
+                                   "",
                                    "管理歌词显示、默认获取策略和本机资源。"};
     m_pageTitle->setText(titles[page]);
     m_pageSubtitle->setText(!lyricFeaturesEnabled() && page == 4 ? "管理下载目录、工具和顶部进度条。"
                                                                  : subtitles[page]);
-    if (page == 3 && !recognitionFeaturesEnabled())
-        m_pageSubtitle->setText("在线搜索现成歌词，确认版本并应用时间轴。");
-    m_pageSubtitle->setVisible(page >= 2);
+    m_pageSubtitle->setVisible(page >= 2 && page != 3);
     m_headerTools->setVisible(page < 2);
     if (page < 2)
         m_headerTools->setCurrentIndex(page);
+    if (page == 4)
+        for (const auto &entry : LyricsSourcesSearch::sources()) {
+            if (auto box = findChild<QCheckBox *>("onlineSource_" + entry.first)) {
+                const QSignalBlocker guard(box);
+                box->setChecked(LyricsSourcesSearch::selectedSources(m_settings).contains(entry.first));
+            }
+            if (auto group = findChild<QButtonGroup *>("settingsPrimaryOnlineSource"))
+                for (auto button : group->buttons())
+                    if (button->property("value") == m_settings->value("lyrics/primaryOnlineSource", "msr")) {
+                        const QSignalBlocker guard(button);
+                        button->setChecked(true);
+                    }
+        }
     if (page == 4)
         if (auto source = m_pages->widget(4)->findChild<QButtonGroup *>("settingsLyricSource")) {
             for (auto button : source->buttons())
@@ -680,6 +694,11 @@ QWidget *MainWindow::createLibraryPage() {
     m_sortButton = action(QStringList{"A~Z", "time", "size"}[m_sortMode], "librarySort");
     m_sortDirection = action(m_sortAscending ? "↓" : "↑", "librarySortDirection");
     m_sortButton->setToolTip("切换：名称 / 时长 / 文件大小");
+    m_unassignedTracks = new QCheckBox("显示无归属歌曲");
+    m_unassignedTracks->setObjectName("showUnassignedTracks");
+    m_unassignedTracks->setToolTip("仅显示尚未加入任何歌单的歌曲。");
+    m_unassignedTracks->setChecked(m_settings->value("library/onlyUnassigned", false).toBool());
+    leftHeader->addWidget(m_unassignedTracks);
     leftHeader->addWidget(m_sortButton);
     leftHeader->addWidget(m_sortDirection);
     songs->addLayout(leftHeader);
@@ -697,18 +716,27 @@ QWidget *MainWindow::createLibraryPage() {
     m_back = action("← 返回歌单", "playlistBack");
     m_back->hide();
     m_playlistHeading = label("我的歌单", "section");
+    m_playlistHeading->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_playlistHeading->setMinimumWidth(0);
     m_playlistHeading->setContextMenuPolicy(Qt::CustomContextMenu);
     auto create = action("＋ 新建");
     rightHeader->addWidget(m_back);
     rightHeader->addWidget(m_playlistHeading, 1);
     rightHeader->addWidget(create);
+    m_playlistSequential = action("顺序播放", "libraryPlaylistSequential");
+    m_playlistShuffle = action("随机播放", "libraryPlaylistShuffle");
+    m_playlistSequential->setToolTip("按歌单顺序加入播放队列。");
+    m_playlistShuffle->setToolTip("打乱歌单歌曲后加入播放队列。");
+    rightHeader->addWidget(m_playlistSequential);
+    rightHeader->addWidget(m_playlistShuffle);
     playlists->addLayout(rightHeader);
     m_playlistSummary = label("点击歌单整理已收录歌曲", "muted");
     playlists->addWidget(m_playlistSummary);
     m_playlistPages = new QStackedWidget;
+    m_playlistPages->setObjectName("libraryPlaylistPages");
     m_playlists = new PlaylistView;
     m_playlists->setObjectName("playlistList");
-    configureRecordCards(m_playlists);
+    configureRecordCards(m_playlists, true);
     m_playlists->setAcceptDrops(true);
     m_playlists->setDragEnabled(true);
     m_playlists->setDragDropMode(QAbstractItemView::DragDrop);
@@ -754,6 +782,13 @@ QWidget *MainWindow::createLibraryPage() {
         m_settings->setValue("library/sortMode", m_sortMode);
         refresh();
     });
+    connect(m_unassignedTracks, &QCheckBox::toggled, this, [this](bool checked) {
+        m_settings->setValue("library/onlyUnassigned", checked);
+        refresh();
+    });
+    connect(m_playlistSequential, &QPushButton::clicked, this, [this] { queueLibraryPlaylist(m_playlist, false); });
+    connect(m_playlistShuffle, &QPushButton::clicked, this, [this] { queueLibraryPlaylist(m_playlist, true); });
+    connect(m_playlists, &PlaylistView::queueRequested, this, &MainWindow::queueLibraryPlaylist);
     connect(m_sortDirection, &QPushButton::clicked, this, [this] {
         m_sortAscending = !m_sortAscending;
         m_sortDirection->setText(m_sortAscending ? "↓" : "↑");
@@ -824,6 +859,7 @@ void MainWindow::refresh() {
     const auto selected = m_tracks->selectedIds(), memberSelection = m_playlistTracks->selectedIds();
     const auto playlists = m_library->playlists();
     QString name;
+    QSet<qint64> assigned;
     bool exists = m_playlist == 0;
     m_playlists->clear();
     for (const auto &p : playlists) {
@@ -832,8 +868,10 @@ void MainWindow::refresh() {
         item->setData(Qt::UserRole, id);
         item->setData(Qt::UserRole + 1, p.value("count"));
         qint64 playlistDuration = 0;
-        for (const auto &track : m_library->tracks(id))
+        for (const auto &track : m_library->tracks(id)) {
             playlistDuration += track.value("duration").toLongLong();
+            assigned.insert(track.value("id").toLongLong());
+        }
         item->setData(Qt::UserRole + 2, playlistDuration);
         item->setToolTip(p.value("name").toString());
         if (id == m_playlist) {
@@ -871,7 +909,7 @@ void MainWindow::refresh() {
     m_tracks->clear();
     m_playlistTracks->clear();
     m_tracks->playlist = 0;
-    m_tracks->filtered = !m_libraryNeedle.isEmpty();
+    m_tracks->filtered = !m_libraryNeedle.isEmpty() || m_unassignedTracks->isChecked();
     m_playlistTracks->playlist = m_playlist;
     m_playlistTracks->filtered = false;
     auto append = [this](TrackView *view, const Track &t, const QList<qint64> &selection) {
@@ -889,6 +927,8 @@ void MainWindow::refresh() {
     };
     qint64 duration = 0;
     for (const auto &t : all) {
+        if (m_unassignedTracks->isChecked() && assigned.contains(t.value("id").toLongLong()))
+            continue;
         if (m_playlist && collected.contains(t.value("id").toLongLong()))
             continue;
         append(m_tracks, t, selected);
@@ -901,16 +941,30 @@ void MainWindow::refresh() {
                            .arg(m_tracks->topLevelItemCount())
                            .arg(displayTime(duration), m_playlist ? " · 当前歌单尚未收录" : ""));
     m_playlistHeading->setText(m_playlist ? name : "我的歌单");
+    m_playlistHeading->setToolTip(m_playlist ? name : "我的歌单");
     m_playlistSummary->setText(
         m_playlist ? QString("已收录 %1 首 · 可拖入歌曲或右击管理").arg(members.size())
                    : QString("%1 个歌单 · 点击进入整理，歌曲可收录到多个歌单").arg(playlists.size()));
     m_playlistPages->setCurrentIndex(m_playlist ? 1 : 0);
     m_back->setVisible(m_playlist != 0);
+    m_playlistSequential->setVisible(m_playlist != 0);
+    m_playlistShuffle->setVisible(m_playlist != 0);
+    m_playlistSequential->setEnabled(!members.isEmpty());
+    m_playlistShuffle->setEnabled(!members.isEmpty());
     m_addToPlaylist->setEnabled(m_playlist != 0);
     m_removeFromPlaylist->setEnabled(m_playlist != 0);
     m_refreshing = false;
     refreshPlaybackBrowser();
     refreshPlaybackQueue();
+}
+void MainWindow::queueLibraryPlaylist(qint64 playlist, bool shuffled) {
+    QList<qint64> ids;
+    for (const auto &song : m_library->tracks(playlist)) ids << song.value("id").toLongLong();
+    if (!playlist || ids.isEmpty()) { notify("这个歌单还没有歌曲"); return; }
+    if (shuffled)
+        for (int i = ids.size() - 1; i > 0; --i) ids.swapItemsAt(i, QRandomGenerator::global()->bounded(i + 1));
+    m_player.enqueue(ids);
+    notify(QString("已将 %1 首歌曲%2加入播放队列").arg(ids.size()).arg(shuffled ? "打乱后" : "按顺序"));
 }
 
 QWidget *MainWindow::createSearchPage() {
@@ -1429,14 +1483,17 @@ QWidget *MainWindow::createLyricWorkbench() {
     sourceRow->addWidget(label("歌曲源"));
     sourceRow->addWidget(m_lyricTracks, 1);
     layout->addLayout(sourceRow);
-    auto meta = new QFormLayout;
+    auto metadataRow = new QHBoxLayout;
     m_matchTitle = new QLineEdit;
     m_matchTitle->setObjectName("lyricSongTitle");
     m_matchArtist = new QLineEdit;
     m_matchArtist->setObjectName("lyricSongArtist");
     m_matchArtist->setPlaceholderText("可填写真实歌手，提高匹配准确度");
-    meta->addRow("歌曲名", m_matchTitle);
-    meta->addRow("歌手", m_matchArtist);
+    metadataRow->addWidget(label("歌曲名"));
+    metadataRow->addWidget(m_matchTitle, 1);
+    metadataRow->addWidget(label("歌手"));
+    metadataRow->addWidget(m_matchArtist, 1);
+    layout->addLayout(metadataRow);
     auto remember = [this] {
         if (m_lyricTrack)
             m_library->setWorkbenchMetadata(m_lyricTrack, m_matchTitle->text(), m_matchArtist->text());
@@ -1445,8 +1502,49 @@ QWidget *MainWindow::createLyricWorkbench() {
     connect(m_matchArtist, &QLineEdit::textChanged, this, remember);
     m_lyricLookup = new QLineEdit;
     m_lyricLookup->setObjectName("lyricLookupInput");
-    m_lyricLookup->setPlaceholderText("可选：搜索关键词或 LRCLIB 歌词链接");
-    meta->addRow("在线搜索", m_lyricLookup);
+    m_lyricLookup->setPlaceholderText("可选：搜索关键词、塞壬官网或 LRCLIB 歌词链接");
+    auto meta = new QFormLayout;
+    auto lookupRow = new QHBoxLayout;
+    lookupRow->addWidget(m_lyricLookup, 1);
+    auto sourceOptions = action("歌词源", "onlineSourceOptions");
+    sourceOptions->setToolTip("设置优先源和备用源；仅当当前源没有结果时查询下一个。");
+    auto sourceMenu = new QMenu(sourceOptions);
+    auto priorityMenu = sourceMenu->addMenu("优先查询");
+    auto priorityGroup = new QActionGroup(sourceMenu);
+    priorityGroup->setExclusive(true);
+    for (const auto &entry : LyricsSourcesSearch::sources()) {
+        auto preferred = priorityMenu->addAction(entry.second);
+        preferred->setCheckable(true);
+        preferred->setData(entry.first);
+        priorityGroup->addAction(preferred);
+        connect(preferred, &QAction::triggered, this, [this, entry] {
+            m_settings->setValue("lyrics/primaryOnlineSource", entry.first);
+            auto enabled = LyricsSourcesSearch::selectedSources(m_settings);
+            if (!enabled.contains(entry.first)) enabled.prepend(entry.first);
+            m_settings->setValue("lyrics/onlineSources", enabled);
+            m_settings->sync();
+        });
+        auto enabled = sourceMenu->addAction(entry.second);
+        enabled->setCheckable(true);
+        enabled->setData(entry.first);
+        connect(enabled, &QAction::triggered, this, [this, entry](bool checked) {
+            auto enabled = LyricsSourcesSearch::selectedSources(m_settings);
+            enabled.removeAll(entry.first);
+            if (checked) enabled << entry.first;
+            m_settings->setValue("lyrics/onlineSources", enabled);
+            m_settings->sync();
+        });
+    }
+    connect(sourceMenu, &QMenu::aboutToShow, this, [this, sourceMenu, priorityGroup] {
+        const auto enabled = LyricsSourcesSearch::selectedSources(m_settings);
+        for (auto item : sourceMenu->actions())
+            if (item->isCheckable()) item->setChecked(enabled.contains(item->data().toString()));
+        for (auto item : priorityGroup->actions())
+            item->setChecked(item->data().toString() == m_settings->value("lyrics/primaryOnlineSource", "msr"));
+    });
+    sourceOptions->setMenu(sourceMenu);
+    lookupRow->addWidget(sourceOptions);
+    meta->addRow("在线搜索", lookupRow);
     layout->addLayout(meta);
     auto divider = new QFrame;
     divider->setObjectName("lyricSectionDivider");
@@ -1534,7 +1632,7 @@ QWidget *MainWindow::createLyricWorkbench() {
         if (m_localLyricMethod->currentIndex() >= 0 &&
             m_localLyricMethod->currentIndex() < methodButtons.size())
             methodButtons[m_localLyricMethod->currentIndex()]->setChecked(true);
-        match->setText(source == "online"                               ? "线上匹配"
+        match->setText(source == "online"                               ? (m_candidateQueries.contains(m_lyricTrack) ? "继续搜索" : "线上匹配")
                        : source == "local"                              ? "导入 LRC"
                        : m_localLyricMethod->currentData().toInt() == 1 ? "识别字幕"
                                                                         : "导入歌词");
@@ -1627,23 +1725,85 @@ QWidget *MainWindow::createLyricWorkbench() {
     m_lyricPreview->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     layout->addWidget(m_lyricPreview, 1);
     auto offsetRow = new QHBoxLayout;
-    offsetRow->addWidget(label("同步偏移", "muted"));
+    offsetRow->addWidget(label("整体偏移", "muted"));
+    auto offsetControls = new QWidget;
+    offsetControls->setObjectName("lyricOffsetControls");
+    auto offsetButtons = new QHBoxLayout(offsetControls);
+    offsetButtons->setContentsMargins(0, 0, 0, 0);
+    offsetButtons->setSpacing(6);
     m_matchOffset = new QSpinBox;
     m_matchOffset->setObjectName("lyricTimeOffset");
     m_matchOffset->setRange(-600000, 600000);
     m_matchOffset->setSingleStep(100);
     m_matchOffset->setSuffix(" ms");
-    offsetRow->addWidget(m_matchOffset, 1);
-    layout->addLayout(offsetRow);
+    m_matchOffset->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    m_matchOffset->setFixedWidth(m_matchOffset->fontMetrics().horizontalAdvance("-100000 ms") + 24);
+    offsetButtons->addWidget(m_matchOffset);
+    auto earlier = action("歌词提前显示", "lyricsShowEarlier");
+    auto later = action("歌词延后显示", "lyricsShowLater");
+    earlier->setToolTip("整首歌词提前显示 100 ms");
+    later->setToolTip("整首歌词延后显示 100 ms");
+    offsetButtons->addWidget(earlier);
+    offsetButtons->addWidget(later);
+    connect(earlier, &QPushButton::clicked, m_matchOffset, &QSpinBox::stepUp);
+    connect(later, &QPushButton::clicked, m_matchOffset, &QSpinBox::stepDown);
+    offsetRow->addWidget(offsetControls);
     auto timing = label("正值提前显示。试听时可实时调整；双击歌词跳转。", "muted");
     timing->setWordWrap(true);
-    layout->addWidget(timing);
+    offsetRow->addWidget(timing, 1);
+    layout->addLayout(offsetRow);
     auto actions = new QWidget;
     actions->setObjectName("workbenchActions");
     auto trialRow = new QHBoxLayout(actions);
     trialRow->setContentsMargins(10, 0, 8, 0);
     auto trial = action("▷ 试听当前歌曲", "primary");
     trial->setObjectName("trialLyrics");
+    trialRow->addWidget(label("步长", "muted"));
+    auto seekStep = new QDoubleSpinBox;
+    seekStep->setObjectName("lyricPreviewSeekStep");
+    seekStep->setDecimals(1);
+    seekStep->setRange(.1, 100);
+    seekStep->setSingleStep(.1);
+    seekStep->setSuffix(" s");
+    seekStep->setValue(m_settings->value("lyrics/previewSeekSeconds", 1.).toDouble());
+    seekStep->setFixedWidth(seekStep->fontMetrics().horizontalAdvance("100.0 s") + 42);
+    seekStep->setToolTip("前进、后退的时间步长，默认 1 秒；可调整到 0.1～100 秒。");
+    trialRow->addWidget(seekStep);
+    auto seekButtons = new QWidget;
+    seekButtons->setObjectName("lyricPreviewSeekButtons");
+    auto seekLayout = new QHBoxLayout(seekButtons);
+    seekLayout->setContentsMargins(0, 0, 0, 0);
+    seekLayout->setSpacing(6);
+    auto backward = action("←", "lyricPreviewBackward");
+    auto forward = action("→", "lyricPreviewForward");
+    backward->setAccessibleName("后退");
+    forward->setAccessibleName("前进");
+    backward->setFixedWidth(40);
+    forward->setFixedWidth(40);
+    backward->setToolTip("按步长后退当前歌曲的播放进度，保留播放或暂停状态。");
+    forward->setToolTip("按步长前进当前歌曲的播放进度，保留播放或暂停状态。");
+    seekLayout->addWidget(backward);
+    seekLayout->addWidget(forward);
+    trialRow->addWidget(seekButtons);
+    const auto updateSeek = [this, seekButtons] {
+        seekButtons->setEnabled(m_lyricTrack && m_player.currentId() == m_lyricTrack &&
+                                m_player.media()->isSeekable());
+    };
+    connect(&m_player, &Player::currentChanged, actions, updateSeek);
+    connect(m_player.media(), &QMediaPlayer::seekableChanged, actions, updateSeek);
+    updateSeek();
+    connect(seekStep, &QDoubleSpinBox::valueChanged, this, [this](double seconds) {
+        m_settings->setValue("lyrics/previewSeekSeconds", seconds);
+    });
+    const auto seek = [this, seekStep](int direction) {
+        auto media = m_player.media();
+        if (!m_lyricTrack || m_player.currentId() != m_lyricTrack || !media->isSeekable())
+            return;
+        const auto position = qMax(qint64(0), media->position() + direction * qRound64(seekStep->value() * 1000));
+        media->setPosition(media->duration() > 0 ? qMin(position, media->duration()) : position);
+    };
+    connect(backward, &QPushButton::clicked, this, [seek] { seek(-1); });
+    connect(forward, &QPushButton::clicked, this, [seek] { seek(1); });
     trialRow->addStretch();
     trialRow->addWidget(trial);
     trialRow->addWidget(match);
@@ -1736,6 +1896,8 @@ void MainWindow::selectLyricTrack(qint64 id, bool match) {
     if (!recognitionFeaturesEnabled())
         m_workbenchTracks.insert(id);
     m_lyricTrack = m_workbenchTracks.contains(id) && !m_library->track(id).isEmpty() ? id : 0;
+    if (m_lyricSource->currentData().toString() == "online")
+        findChild<QPushButton *>("matchLyrics")->setText(m_candidateQueries.contains(m_lyricTrack) ? "继续搜索" : "线上匹配");
     if (m_lyricTrack)
         m_library->beginWorkbench(m_lyricTrack);
     {
@@ -1789,6 +1951,9 @@ void MainWindow::refreshLyricWorkbench(bool force) {
         m_matchOffset->setValue(t.value("lyric_offset").toInt());
     }
     m_matchOffset->setEnabled(m_lyricTrack != 0);
+    findChild<QWidget *>("lyricOffsetControls")->setEnabled(m_lyricTrack != 0);
+    findChild<QWidget *>("lyricPreviewSeekButtons")->setEnabled(
+        m_lyricTrack && m_player.currentId() == m_lyricTrack && m_player.media()->isSeekable());
     const bool selected = m_lyricTrack != 0;
     const bool staged = selected && t.value("staged").toBool();
     m_commitWithLyrics->setEnabled(staged);
@@ -1907,25 +2072,6 @@ void MainWindow::matchLyrics(bool offline) {
         return;
     }
     applyLyricSource();
-    const auto query = m_matchTitle->text().trimmed() + "\n" + m_matchArtist->text().trimmed() + "\n" +
-                       m_lyricLookup->text().trimmed();
-    if (!offline && m_lyricSource->currentData().toString() == "online" &&
-        m_candidateQueries.value(m_lyricTrack) == query && m_candidateTrack == m_lyricTrack &&
-        m_candidates->topLevelItemCount()) {
-        const int next = m_candidates->indexOfTopLevelItem(m_candidates->currentItem()) + 1;
-        if (next >= m_candidates->topLevelItemCount()) {
-            m_lyricStatus->setText("已查看全部候选，可修改歌名或歌手重新搜索。");
-            return;
-        }
-        auto item = m_candidates->topLevelItem(next);
-        m_candidates->setCurrentItem(item);
-        const auto candidate = item->data(0, Qt::UserRole).toMap();
-        if (!Lrc::parse(candidate.value("syncedLyrics").toString()).isEmpty())
-            m_lyrics.useCandidate(m_lyricTrack, candidate, true);
-        else
-            m_lyricStatus->setText("下一个候选仅有文字，可采用后匹配时间。");
-        return;
-    }
     m_candidateCache.remove(m_lyricTrack);
     m_candidates->clear();
     m_candidates->hide();
@@ -1992,6 +2138,8 @@ void MainWindow::chooseLyrics(qint64 id, const QList<QVariantMap> &items) {
                              (id == m_lyricTrack ? m_lyricLookup->text().trimmed() : QString());
     if (id != m_lyricTrack)
         return;
+    if (m_lyricSource->currentData().toString() == "online")
+        findChild<QPushButton *>("matchLyrics")->setText("继续搜索");
     m_candidateTrack = id;
     m_candidates->clear();
     for (const auto &candidate : items) {
@@ -2006,7 +2154,7 @@ void MainWindow::chooseLyrics(qint64 id, const QList<QVariantMap> &items) {
         item->setData(0, Qt::UserRole, candidate);
         item->setToolTip(0, candidate.value("sourceUrl").toString());
     }
-    // Keep candidate order for "next version" without duplicating the results UI.
+    // Each click appends only this batch to the result queue.
     // All versions are viewed and applied from the recognition queue.
     m_candidates->hide();
     m_candidatePreview->hide();
@@ -2027,17 +2175,18 @@ QWidget *MainWindow::createSettingsPage() {
     auto sections = new QStackedWidget;
     sections->setObjectName("settingsSections");
     QList<QVBoxLayout *> sectionLayouts;
-    const QStringList captions{"通用设置", "进度条", "歌词显示", "资源与工具保存"};
+    const QStringList captions{"通用设置", "进度条", "歌词显示", "资源与工具保存", "工作台设置"};
     for (int i = 0; i < captions.size(); ++i) {
         auto button = action(captions[i], QString("settingsCategory%1").arg(i));
         button->setCheckable(true);
         button->setProperty("settingsTab", true);
         categoryGroup->addButton(button, i);
-        categories->addWidget(button);
+        if (i == 4) categories->insertWidget(1, button);
+        else categories->addWidget(button);
         auto content = new QWidget;
         content->setObjectName(QString("settingsSection%1").arg(i));
-        if (i == 2 || i == 3) {
-            content->setMaximumWidth(820);
+        if (i == 2 || i == 3 || i == 4) {
+            content->setMaximumWidth(i == 4 ? 1000 : 820);
             content->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         }
         auto contentLayout = new QVBoxLayout(content);
@@ -2060,7 +2209,17 @@ QWidget *MainWindow::createSettingsPage() {
     auto generalLayout = sectionLayouts[0];
     auto lyricLayout = sectionLayouts[2];
     auto resourceLayout = sectionLayouts[3];
+    auto workbenchLayout = sectionLayouts[4];
     auto layout = sectionLayouts[1];
+    workbenchLayout->addWidget(label("工作台设置", "section"));
+    const auto divider = [](QVBoxLayout *target, const QString &name) {
+        auto line = new QFrame;
+        line->setObjectName(name);
+        line->setFrameShape(QFrame::HLine);
+        line->setProperty("separator", true);
+        line->setMaximumWidth(900);
+        target->addWidget(line);
+    };
     generalLayout->addWidget(label("通用设置", "section"));
     auto simplify = new QCheckBox("繁体中文自动转简体");
     simplify->setObjectName("settingsAutoSimplifyChinese");
@@ -2113,7 +2272,44 @@ QWidget *MainWindow::createSettingsPage() {
     connect(themeChoices, &QButtonGroup::idClicked, this, [this, themeChoices] {
         applyTheme(themeChoices->checkedButton()->property("value").toString());
     });
-    generalLayout->addLayout(appearanceForm);
+    if (lyricFeaturesEnabled()) {
+        auto onlineOptions = new QWidget;
+        onlineOptions->setMaximumWidth(900);
+        auto onlineForm = new QFormLayout(onlineOptions);
+        onlineForm->setContentsMargins(0, 0, 0, 0);
+        QList<QPair<QString, QString>> providerChoices;
+        for (const auto &entry : LyricsSourcesSearch::sources()) providerChoices << qMakePair(entry.second, entry.first);
+        auto primary = choiceRow(onlineForm, "优先歌词源", "settingsPrimaryOnlineSource",
+                                 providerChoices,
+                                 m_settings->value("lyrics/primaryOnlineSource", "msr"));
+        auto enabledRow = new QHBoxLayout;
+        const auto selected = LyricsSourcesSearch::selectedSources(m_settings);
+        for (const auto &entry : LyricsSourcesSearch::sources()) {
+            auto box = new QCheckBox(entry.second);
+            box->setObjectName("onlineSource_" + entry.first);
+            box->setChecked(selected.contains(entry.first));
+            enabledRow->addWidget(box);
+            connect(box, &QCheckBox::toggled, this, [this, entry](bool checked) {
+                auto values = LyricsSourcesSearch::selectedSources(m_settings);
+                values.removeAll(entry.first);
+                if (checked) values << entry.first;
+                m_settings->setValue("lyrics/onlineSources", values);
+                m_settings->sync();
+            });
+        }
+        enabledRow->addStretch();
+        onlineForm->addRow("启用备用源", enabledRow);
+        connect(primary, &QButtonGroup::idClicked, this, [this, primary] {
+            const auto value = primary->checkedButton()->property("value").toString();
+            m_settings->setValue("lyrics/primaryOnlineSource", value);
+            findChild<QCheckBox *>("onlineSource_" + value)->setChecked(true);
+            m_settings->sync();
+        });
+        auto policy = label("按优先源、备用源依次查询，命中即停；每批最多 5 个结果。请求间隔至少 1 秒，遇到限流停止。", "muted");
+        policy->setWordWrap(true);
+        onlineForm->addRow(policy);
+        workbenchLayout->addWidget(onlineOptions);
+    }
     auto audioOutput = new QWidget;
     audioOutput->setMaximumWidth(820);
     auto audioForm = new QFormLayout(audioOutput);
@@ -2165,7 +2361,6 @@ QWidget *MainWindow::createSettingsPage() {
     });
     connect(detect, &QPushButton::clicked, page, [this] { m_player.refreshAudioOutputs(true); });
     refreshOutputs();
-    generalLayout->addWidget(audioOutput);
     auto closeToTray = new QCheckBox("关闭主窗口时最小化到托盘");
     closeToTray->setObjectName("settingsCloseToTray");
     closeToTray->setChecked(m_settings->value("application/closeToTray", true).toBool());
@@ -2204,6 +2399,7 @@ QWidget *MainWindow::createSettingsPage() {
         startupStatus->hide();
         notify(enabled ? "已开启开机自启动" : "已关闭开机自启动");
     });
+    divider(generalLayout, "generalDuckingDivider");
     generalLayout->addWidget(label("自动消声", "section"));
     auto duckEnabled = new QCheckBox("自动降低音乐音量");
     duckEnabled->setObjectName("settingsDuckingEnabled");
@@ -2262,6 +2458,10 @@ QWidget *MainWindow::createSettingsPage() {
     for (auto box : {duckEnabled, onSpeech, onMic, onOtherAudio})
         connect(box, &QCheckBox::toggled, this, applyDucking);
     connect(reduction, &QSpinBox::valueChanged, this, applyDucking);
+    divider(generalLayout, "generalThemeDivider");
+    generalLayout->addLayout(appearanceForm);
+    divider(generalLayout, "generalAudioOutputDivider");
+    generalLayout->addWidget(audioOutput);
     auto showFloat = new QCheckBox("显示顶部进度条"), showLyrics = new QCheckBox("显示桌面歌词");
     showFloat->setObjectName("settingsShowFloat");
     showLyrics->setObjectName("settingsShowLyrics");
@@ -2370,7 +2570,7 @@ QWidget *MainWindow::createSettingsPage() {
     auto lyricPane = lyricLayout->parentWidget();
     if (!lyricFeaturesEnabled())
         lyricPane->hide();
-    layout = generalLayout;
+    layout = workbenchLayout;
     auto form = new QFormLayout;
     form->setVerticalSpacing(14);
     auto source = choiceRow(form, "默认获取来源", "settingsLyricSource",
@@ -2404,18 +2604,20 @@ QWidget *MainWindow::createSettingsPage() {
         language->buttons().first()->parentWidget()->hide();
     }
     if (!recognitionFeaturesEnabled()) {
-        for (auto group : {source, ocrDevice, ocrLanguage, language})
-            for (auto button : group->buttons()) {
-                button->setEnabled(false);
-                button->hide();
-            }
+        for (auto button : source->buttons())
+            if (button != source->button(0)) { button->setEnabled(false); button->hide(); }
+        for (auto group : {ocrDevice, ocrLanguage, language}) {
+            auto field = group->buttons().first()->parentWidget();
+            form->labelForField(field)->hide();
+            field->hide();
+        }
         source->button(0)->setChecked(true);
     }
     auto generalPane = new QWidget;
     generalPane->setLayout(form);
-    generalLayout->addWidget(generalPane);
-    if (!recognitionFeaturesEnabled())
-        generalPane->hide();
+    generalPane->setObjectName("workbenchDefaultOptions");
+    generalPane->setMaximumWidth(900);
+    workbenchLayout->addWidget(generalPane);
     layout = lyricLayout;
     form = new QFormLayout;
     form->setVerticalSpacing(14);

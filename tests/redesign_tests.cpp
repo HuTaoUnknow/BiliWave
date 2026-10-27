@@ -623,6 +623,7 @@ class RedesignTests : public QObject {
             window.show();
             auto pages = window.findChild<QStackedWidget *>("modulePages");
             QCOMPARE(pages->currentIndex(), 4);
+            window.findChild<QPushButton *>("settingsCategory4")->click();
             auto cpu = settingChoice(window, "settingsOcrDevice", "cpu");
             QVERIFY(cpu);
             QTest::mouseClick(cpu, Qt::LeftButton);
@@ -639,7 +640,7 @@ class RedesignTests : public QObject {
             auto sections = window.findChild<QStackedWidget *>("settingsSections");
             QDir shots(resourceRoot() + "/docs/screenshots");
             shots.mkpath(".");
-            for (int i = 0; i < 4; ++i) {
+            for (int i = 0; i < 5; ++i) {
                 auto button = window.findChild<QPushButton *>(QString("settingsCategory%1").arg(i));
                 button->click();
                 QTest::qWait(40);
@@ -1165,13 +1166,21 @@ class RedesignTests : public QObject {
             candidates << QVariantMap{{"trackName", QString::number(i)},
                                       {"syncedLyrics", QString("[00:01.00]版本%1").arg(i)}};
         window.lyrics()->candidates(id, candidates);
-        window.findChild<QPushButton *>("useLyricCandidate")->click();
-        window.findChild<QPushButton *>("matchLyrics")->click();
-        QVERIFY(library.workbenchTrack(id).value("lrc").toString().contains("版本1"));
-        window.findChild<QPushButton *>("matchLyrics")->click();
-        QVERIFY(library.workbenchTrack(id).value("lrc").toString().contains("版本2"));
-        window.findChild<QPushButton *>("matchLyrics")->click();
-        QVERIFY(library.workbenchTrack(id).value("lrc").toString().contains("版本2"));
+        QCOMPARE(window.findChild<QPushButton *>("matchLyrics")->text(), QString("继续搜索"));
+        QVERIFY(library.workbenchTrack(id).value("lrc").toString().contains("新句"));
+        auto resultQueue = window.findChild<LyricQueue *>();
+        auto resultList = resultQueue->findChild<QListWidget *>("lyricQueueTasks");
+        QCOMPARE(resultList->count(), 3);
+        for (int i = 0; i < 3; ++i) {
+            resultList->setCurrentRow(i);
+            QTimer::singleShot(20, resultQueue, [resultQueue] {
+                auto review = resultQueue->findChild<QDialog *>("queuedLyricReview");
+                QVERIFY(review);
+                review->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Apply)->click();
+            });
+            resultQueue->findChild<QPushButton *>("reviewQueuedLyrics")->click();
+            QVERIFY(library.workbenchTrack(id).value("lrc").toString().contains(QString("版本%1").arg(i)));
+        }
         QDir screenshots(resourceRoot() + "/docs/screenshots");
         screenshots.mkpath(".");
         QCoreApplication::processEvents();

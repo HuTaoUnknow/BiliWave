@@ -84,7 +84,7 @@ class LyricService : public QObject {
     QNetworkAccessManager m_network;
     quint64 m_request = 0;
     bool m_onlinePending = false;
-    OnlineLyricsSearch m_online;
+    LyricsSourcesSearch m_online;
     qint64 m_onlineTrack = 0;
     bool m_onlineWorkbench = false;
 };

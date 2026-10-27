@@ -2,11 +2,138 @@
 #include "window.h"
 #include <QDialogButtonBox>
 #include <QTemporaryDir>
+#include <QScrollBar>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QMenu>
+#include <QButtonGroup>
 #include <QtTest>
 
 class WorkbenchTests : public QObject {
     Q_OBJECT
   private slots:
+    void unassignedFilterAndPlaylistQueueActions() {
+        QTemporaryDir dir(QDir::current().filePath("library-actions-test-XXXXXX"));
+        Library library(dir.filePath("data"));
+        QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+        settings.setValue("lyrics/autoFetch", false);
+        settings.setValue("windows/showFloat", false);
+        settings.setValue("windows/showLyrics", false);
+        QList<qint64> ids;
+        for (int i = 0; i < 4; ++i) {
+            QFile file(dir.filePath(QString::number(i) + ".wav"));
+            QVERIFY(file.open(QIODevice::WriteOnly)); file.write("RIFF"); file.close();
+            ids << library.addTrack({{"title", QString("歌曲 %1").arg(i)}, {"path", file.fileName()}, {"duration", 60000}});
+        }
+        const auto first = library.createPlaylist("第一张歌单"), second = library.createPlaylist("第二张歌单");
+        QVERIFY(library.addToPlaylist(first, {ids[0], ids[1]}));
+        QVERIFY(library.addToPlaylist(second, {ids[1], ids[2]}));
+        MainWindow window(&library, &settings);
+        window.resize(1500, 950); window.show(); window.navigate(1);
+        auto cards = window.findChild<PlaylistView *>("playlistList");
+        auto available = window.findChild<TrackView *>("availableTracks");
+        auto pages = window.findChild<QStackedWidget *>("libraryPlaylistPages");
+        auto unassigned = window.findChild<QCheckBox *>("showUnassignedTracks");
+        QTest::qWait(40);
+        QCOMPARE(available->topLevelItemCount(), 4);
+        QTest::mouseClick(cards->viewport(), Qt::LeftButton, Qt::NoModifier, cards->visualItemRect(cards->item(0)).center());
+        QCOMPARE(pages->currentIndex(), 1);
+        QCOMPARE(available->topLevelItemCount(), 2); // C belongs to another list, D belongs to none.
+        unassigned->setChecked(true);
+        QCOMPARE(available->topLevelItemCount(), 1);
+        QCOMPARE(available->topLevelItem(0)->data(0, Qt::UserRole).toLongLong(), ids[3]);
+        QVERIFY(library.addToPlaylist(second, {ids[3]}));
+        QCOMPARE(available->topLevelItemCount(), 0);
+        QVERIFY(library.removeFromPlaylist(second, {ids[3]}));
+        QCOMPARE(available->topLevelItemCount(), 1);
+        window.player()->setQueue({ids[3]}, ids[3], false);
+        window.findChild<QPushButton *>("libraryPlaylistSequential")->click();
+        QCOMPARE(window.player()->queue(), QList<qint64>({ids[3], ids[0], ids[1]}));
+        QCOMPARE(window.player()->currentId(), ids[3]);
+        window.findChild<QPushButton *>("libraryPlaylistShuffle")->click();
+        QCOMPARE(window.player()->queue().size(), 5);
+        const auto shuffled = window.player()->queue().mid(3);
+        QCOMPARE(QSet<qint64>(shuffled.begin(), shuffled.end()), QSet<qint64>({ids[0], ids[1]}));
+        QCOMPARE(window.player()->currentId(), ids[3]);
+        QVERIFY(window.findChild<QPushButton *>("libraryPlaylistSequential")->isVisible());
+        QVERIFY(window.findChild<QPushButton *>("libraryPlaylistShuffle")->isVisible());
+        QVERIFY(window.grab().save(QDir(resourceRoot()).filePath(recognitionFeaturesEnabled()
+            ? ".cache/library-playlist-detail-full.png" : ".cache/library-playlist-detail-lite.png")));
+        window.findChild<QPushButton *>("playlistBack")->click();
+        QCOMPARE(pages->currentIndex(), 0);
+        QTest::qWait(30);
+        QSignalSpy requested(cards, &PlaylistView::queueRequested);
+        auto rect = cards->visualItemRect(cards->item(0));
+        QTest::mouseClick(cards->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(rect.right() - 50, rect.bottom() - 30));
+        QCOMPARE(requested.size(), 1);
+        QCOMPARE(requested.last()[0].toLongLong(), first);
+        QCOMPARE(requested.last()[1].toBool(), false);
+        QCOMPARE(pages->currentIndex(), 0); // A small action must not open the playlist.
+        QCOMPARE(window.player()->queue().size(), 7);
+        QTest::mouseClick(cards->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(rect.right() - 18, rect.bottom() - 30));
+        QCOMPARE(requested.size(), 2);
+        QCOMPARE(requested.last()[1].toBool(), true);
+        QCOMPARE(window.player()->queue().size(), 9);
+        QCOMPARE(pages->currentIndex(), 0);
+        QVERIFY(window.grab().save(QDir(resourceRoot()).filePath(recognitionFeaturesEnabled()
+            ? ".cache/library-actions-full.png" : ".cache/library-actions-lite.png")));
+        window.navigate(4);
+        QCOMPARE(window.findChild<QStackedWidget *>("settingsSections")->count(), 5);
+        window.findChild<QPushButton *>("settingsCategory4")->click();
+        auto workbench = window.findChild<QWidget *>("settingsSection4");
+        QVERIFY(workbench->isAncestorOf(window.findChild<QCheckBox *>("onlineSource_msr")));
+        QVERIFY(workbench->isAncestorOf(window.findChild<QButtonGroup *>("settingsLyricSource")->button(0)));
+        QVERIFY(window.findChild<QCheckBox *>("onlineSource_msr")->isVisible());
+        QVERIFY(window.grab().save(QDir(resourceRoot()).filePath(recognitionFeaturesEnabled()
+            ? ".cache/workbench-settings-full.png" : ".cache/workbench-settings-lite.png")));
+        window.findChild<QPushButton *>("settingsCategory0")->click();
+        for (const auto &name : {"generalDuckingDivider", "generalThemeDivider", "generalAudioOutputDivider"})
+            QVERIFY(window.findChild<QFrame *>(name));
+        QVERIFY(window.grab().save(QDir(resourceRoot()).filePath(recognitionFeaturesEnabled()
+            ? ".cache/general-settings-full.png" : ".cache/general-settings-lite.png")));
+        QCOMPARE(window.findChild<QPushButton *>("lyricPreviewBackward")->text(), QString("←"));
+        QCOMPARE(window.findChild<QPushButton *>("lyricPreviewForward")->text(), QString("→"));
+    }
+    void onlineSourceChoicesAndFiveResultQueue() {
+        QTemporaryDir dir(QDir::current().filePath("source-options-test-XXXXXX"));
+        Library library(dir.filePath("data"));
+        QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+        settings.setValue("lyrics/autoFetch", false);
+        settings.setValue("windows/showFloat", false);
+        settings.setValue("windows/showLyrics", false);
+        MainWindow window(&library, &settings);
+        window.show();
+        window.navigate(4);
+        for (const auto &source : LyricsSourcesSearch::sources())
+            QVERIFY(window.findChild<QCheckBox *>("onlineSource_" + source.first));
+        auto priority = window.findChild<QButtonGroup *>("settingsPrimaryOnlineSource");
+        QVERIFY(priority && priority->buttons().size() == 6);
+        for (auto button : priority->buttons())
+            if (button->property("value").toString() == "qq") button->click();
+        QCOMPARE(LyricsSourcesSearch::selectedSources(&settings).first(), QString("qq"));
+        window.findChild<QCheckBox *>("onlineSource_qq")->setChecked(false);
+        QVERIFY(!LyricsSourcesSearch::selectedSources(&settings).contains("qq"));
+        const auto id = library.addTrack({{"title", "Fixture"}, {"artist", "Configured artist"},
+                                         {"path", dir.filePath("fixture.flac")}});
+        window.loadLibraryTrack(id);
+        auto menu = window.findChild<QPushButton *>("onlineSourceOptions")->menu();
+        QVERIFY(menu);
+        const auto preferred = menu->actions().first()->menu();
+        for (auto action : preferred->actions()) if (action->data().toString() == "netease") action->trigger();
+        QCOMPARE(LyricsSourcesSearch::selectedSources(&settings).first(), QString("netease"));
+        QList<QVariantMap> candidates;
+        for (int i = 0; i < 7; ++i) candidates << QVariantMap{
+            {"id", i}, {"provider", "Fixture source"}, {"trackName", "Fixture"},
+            {"artistName", "Other artist"}, {"syncedLyrics", QString("[00:01.00]Fixture %1").arg(i)}};
+        window.lyrics()->candidates(id, candidates);
+        QCOMPARE(window.findChild<QPushButton *>("matchLyrics")->text(), QString("继续搜索"));
+        auto queue = window.findChild<LyricQueue *>();
+        QCOMPARE(queue->findChild<QListWidget *>("lyricQueueTasks")->count(), 5);
+        QCOMPARE(library.workbenchTrack(id).value("artist").toString(), QString("Configured artist"));
+        window.navigate(4);
+        QVERIFY(window.findChild<QCheckBox *>("onlineSource_netease")->isChecked());
+    }
     void playbackQueueKeepsItsFullHeightWhenEntriesChange() {
         QTemporaryDir dir(QDir::current().filePath("queue-layout-test-XXXXXX"));
         Library library(dir.filePath("data"));
@@ -26,12 +153,50 @@ class WorkbenchTests : public QObject {
         QCOMPARE(initial.bottom(), pane->height() - 1);
         const auto id = library.addTrack({{"title", "队列歌曲"}, {"path", dir.filePath("song.flac")}});
         window.player()->setQueue({id}, id, false);
-        QCoreApplication::processEvents();
+        QTest::qWait(50);
         QCOMPARE(view->geometry(), initial);
+        const auto rowBottom = [&] {
+            const auto rect = view->visualItemRect(view->topLevelItem(view->topLevelItemCount() - 1));
+            return view->viewport()->mapTo(view, rect.bottomLeft()).y();
+        };
+        const int bottom = rowBottom();
+        QVERIFY(qAbs(bottom - view->contentsRect().bottom()) <= 1);
         window.player()->enqueue({id});
-        QCoreApplication::processEvents();
+        QTest::qWait(50);
         QCOMPARE(view->geometry(), initial);
         QCOMPARE(view->topLevelItemCount(), 2);
+        QCOMPARE(rowBottom(), bottom);
+        QVERIFY(view->viewport()->mapTo(view, QPoint()).y() > view->height() / 2);
+        QVERIFY(window.grab().save(QDir(resourceRoot()).filePath(
+            recognitionFeaturesEnabled() ? ".cache/queue-bottom-full.png" : ".cache/queue-bottom-lite.png")));
+        // The unused area above the rows remains a drop target.
+        QMimeData mime;
+        mime.setData(TrackMime, "[\"" + QByteArray::number(id) + "\"]");
+        QDragEnterEvent enter(QPoint(20, 20), Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(view, &enter);
+        QVERIFY(enter.isAccepted());
+        QDropEvent drop(QPointF(20, 20), Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(view, &drop);
+        QVERIFY(drop.isAccepted());
+        QCOMPARE(window.player()->queue().size(), 3);
+        QList<qint64> many;
+        for (int i = 0; i < 40; ++i)
+            many << id;
+        window.player()->enqueue(many);
+        QTest::qWait(50);
+        QVERIFY(view->verticalScrollBar()->maximum() > 0);
+        QCOMPARE(view->verticalScrollBar()->value(), view->verticalScrollBar()->maximum());
+        QCOMPARE(rowBottom(), bottom);
+        window.player()->setQueue({id}, id, false);
+        QTest::qWait(50);
+        QCOMPARE(rowBottom(), bottom);
+        QCOMPARE(view->geometry(), initial);
+        window.resize(1400, 700);
+        QTest::qWait(50);
+        QVERIFY(qAbs(rowBottom() - view->contentsRect().bottom()) <= 1);
+        window.resize(1500, 1000);
+        QTest::qWait(50);
+        QVERIFY(qAbs(rowBottom() - view->contentsRect().bottom()) <= 1);
         for (auto label : pane->findChildren<QLabel *>()) {
             QVERIFY(!label->text().contains("首待播"));
             QVERIFY(!label->text().contains("从下向上"));

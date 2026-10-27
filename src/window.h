@@ -30,7 +30,7 @@ QList<qint64> droppedTracks(const QMimeData *mime, Library *library);
 QString displayTime(qint64 ms);
 QPixmap musicDragPixmap(int count = 1, qreal devicePixelRatio = 1., const QColor &color = QColor("#287eff"));
 class PlaylistView;
-void configureRecordCards(PlaylistView *view);
+void configureRecordCards(PlaylistView *view, bool queueActions = false);
 class BusySpinner : public QWidget {
     Q_OBJECT
   public:
@@ -73,6 +73,7 @@ class PlaylistView : public QListWidget {
     using QListWidget::QListWidget;
   signals:
     void tracksDropped(qint64 playlist, const QList<qint64> &tracks);
+    void queueRequested(qint64 playlist, bool shuffled);
 
   protected:
     void startDrag(Qt::DropActions) override;
@@ -88,12 +89,15 @@ class PlaybackQueueView : public QTreeWidget {
     void tracksDropped(const QList<qint64> &ids);
 
   protected:
+    bool event(QEvent *) override;
+    void updateGeometries() override;
     void dragEnterEvent(QDragEnterEvent *) override;
     void dragMoveEvent(QDragMoveEvent *) override;
     void dropEvent(QDropEvent *) override;
 
   private:
     Library *m_library;
+    bool m_updatingGeometry = false;
 };
 class FloatBar : public QWidget {
     Q_OBJECT
@@ -185,6 +189,7 @@ class MainWindow : public QMainWindow {
     QWidget *createLibraryPage();
     void refreshPlaybackBrowser();
     void refreshPlaybackQueue();
+    void queueLibraryPlaylist(qint64 playlist, bool shuffled);
     QWidget *createLyricWorkbench();
     void beginSearch(int page = 1);
     void downloadResults(bool all = false);
@@ -248,6 +253,8 @@ class MainWindow : public QMainWindow {
     QLabel *m_resultStatus, *m_pageNumber, *m_lyricStatus;
     BusySpinner *m_lyricSpinner;
     QPushButton *m_sortButton, *m_sortDirection;
+    QCheckBox *m_unassignedTracks;
+    QPushButton *m_playlistSequential, *m_playlistShuffle;
     QPushButton *m_commitWithLyrics, *m_commitWithoutLyrics, *m_saveWorkbench;
     int m_sortMode = 0;
     bool m_sortAscending = true;

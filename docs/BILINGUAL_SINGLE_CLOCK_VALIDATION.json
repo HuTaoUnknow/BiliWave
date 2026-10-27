@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-27",
+  "playback_clocks": 1,
+  "data_rewrite": false,
+  "existing_data_checks": {
+    "tracks": {
+      "changed_lyric_records_since_backup": [],
+      "schema_unchanged": true
+    },
+    "workbench_tracks": {
+      "changed_lyric_records_since_backup": [],
+      "schema_unchanged": true
+    }
+  },
+  "local_lyric_validation": [
+    {
+      "both_languages_visible": 57,
+      "id": 33,
+      "sorted_events": 57,
+      "table": "tracks",
+      "timestamps": 57,
+      "title": "Мой мармеладный(我的橘子酱)"
+    },
+    {
+      "both_languages_visible": 87,
+      "id": 34,
+      "sorted_events": 87,
+      "table": "tracks",
+      "timestamps": 87,
+      "title": "Let me go"
+    },
+    {
+      "both_languages_visible": 41,
+      "id": 35,
+      "sorted_events": 41,
+      "table": "tracks",
+      "timestamps": 41,
+      "title": "колыбельная(摇篮曲)"
+    },
+    {
+      "both_languages_visible": 40,
+      "id": 50,
+      "sorted_events": 42,
+      "table": "workbench_tracks",
+      "timestamps": 42,
+      "title": "明日方舟_佩佩_Mystic Light Quest"
+    }
+  ],
+  "tests": {
+    "core_full": 13,
+    "core_lite": 13,
+    "workbench_full": 7,
+    "workbench_lite": 7,
+    "failures": 0
+  }
+}

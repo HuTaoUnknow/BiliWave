@@ -1,0 +1,151 @@
+{
+  "date": "2026-10-27",
+  "providers": [
+    "msr",
+    "netease",
+    "qq",
+    "lrclib",
+    "kugou",
+    "ovh"
+  ],
+  "batch_limit": 5,
+  "minimum_request_interval_ms": 1000,
+  "max_requests_per_click": 8,
+  "transfer_timeout_ms": 6000,
+  "click_timeout_ms": 30000,
+  "retry_policy": "No automatic retries; HTTP 429/503 or JSON 429/503 stops all fallback requests, cooldown >=60s",
+  "live": {
+    "msr": {
+      "bytes": 85935,
+      "candidates": [
+        {
+          "artistName": "塞壬唱片-MSR",
+          "automatic": false,
+          "difference": null,
+          "id": "880390",
+          "provider": "塞壬官方",
+          "score": 93,
+          "sourceUrl": "https://monster-siren.hypergryph.com/music/880390",
+          "timed_lines": 40,
+          "trackName": "无名策"
+        }
+      ],
+      "elapsed_ms": 2060,
+      "error": "",
+      "hasMore": true,
+      "requests": 3,
+      "results": 1,
+      "source": "msr",
+      "working_set_after": 28553216,
+      "working_set_before": 15384576
+    },
+    "netease": {
+      "bytes": 9473,
+      "candidates": [
+        {
+          "artistName": "塞壬唱片-MSR / 拾贰 12 / 黎明鑫（阿火） / Mi / 骅翎",
+          "automatic": false,
+          "difference": 0.525999999999982,
+          "duration": 225.692,
+          "id": "3348083045",
+          "provider": "网易云音乐",
+          "score": 100,
+          "sourceUrl": "https://music.163.com/#/song?id=3348083045",
+          "timed_lines": 40,
+          "trackName": "无名策"
+        },
+        {
+          "artistName": "三本目 / 何乾樑",
+          "automatic": false,
+          "difference": 0.525999999999982,
+          "duration": 225.692,
+          "id": "3350123051",
+          "provider": "网易云音乐",
+          "score": 60,
+          "sourceUrl": "https://music.163.com/#/song?id=3350123051",
+          "timed_lines": 63,
+          "trackName": "无名策（粤语版）"
+        }
+      ],
+      "elapsed_ms": 3072,
+      "error": "",
+      "hasMore": true,
+      "requests": 4,
+      "results": 2,
+      "source": "netease",
+      "working_set_after": 26783744,
+      "working_set_before": 14733312
+    },
+    "qq": {
+      "bytes": 10463,
+      "candidates": [
+        {
+          "artistName": "塞壬唱片-MSR;拾贰 12;黎明鑫 (阿火);Mi;骅翎",
+          "automatic": false,
+          "difference": 1.2179999999999893,
+          "duration": 225,
+          "id": "003KK8fc0G9UpG",
+          "provider": "QQ 音乐",
+          "score": 99,
+          "sourceUrl": "https://y.qq.com/n/ryqq/songDetail/003KK8fc0G9UpG",
+          "timed_lines": 32,
+          "trackName": "无名策"
+        },
+        {
+          "artistName": "何乾樑",
+          "automatic": false,
+          "difference": 1.2179999999999893,
+          "duration": 225,
+          "id": "001Dr1Pj3WilqH",
+          "provider": "QQ 音乐",
+          "score": 59,
+          "sourceUrl": "https://y.qq.com/n/ryqq/songDetail/001Dr1Pj3WilqH",
+          "timed_lines": 62,
+          "trackName": "无名策 (粤语版)"
+        },
+        {
+          "artistName": "塞壬唱片-MSR;拾贰12;黎明鑫 (阿火);Mi;骅翎",
+          "automatic": false,
+          "difference": 63.78200000000001,
+          "duration": 290,
+          "id": "002JTFdV3j1RSr",
+          "provider": "QQ 音乐",
+          "score": 35,
+          "sourceUrl": "https://y.qq.com/n/ryqq/songDetail/002JTFdV3j1RSr",
+          "timed_lines": 28,
+          "trackName": "无名策 (DJ 阿雪版)"
+        }
+      ],
+      "elapsed_ms": 3238,
+      "error": "",
+      "hasMore": true,
+      "requests": 4,
+      "results": 3,
+      "source": "qq",
+      "working_set_after": 26726400,
+      "working_set_before": 14725120
+    }
+  },
+  "tests": {
+    "network_fixture_suite": {
+      "passed": 12,
+      "failed": 0
+    },
+    "full_workbench_suite": {
+      "passed": 7,
+      "failed": 0
+    },
+    "lite_workbench_suite": {
+      "passed": 7,
+      "failed": 0
+    }
+  },
+  "local_executables": {
+    "build": "8d4822ff69dc776861ef74bd9e435f145a829bdfab9936e47cf82ff8e54663b6",
+    "build-lite": "bc0d4a9f8898f473b256fc35c2c5a635826005e65f30d9748211718785a14636",
+    "build-debug": "bc2fb2a50afed04e6319869e9a7c55bb5a72499ab749ab4becd614aa55d10df7",
+    "release-screen": "8d4822ff69dc776861ef74bd9e435f145a829bdfab9936e47cf82ff8e54663b6",
+    "release-lite": "bc0d4a9f8898f473b256fc35c2c5a635826005e65f30d9748211718785a14636"
+  },
+  "deployment": "Local debug and both release directories; existing GitHub installers not republished."
+}

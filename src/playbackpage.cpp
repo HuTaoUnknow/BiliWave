@@ -6,9 +6,14 @@
 #include <QDropEvent>
 #include <QHeaderView>
 #include <QMenu>
+#include <QMouseEvent>
+#include <QHelpEvent>
+#include <QToolTip>
+#include <QPersistentModelIndex>
 #include <QPainter>
 #include <QPainterPath>
 #include <QScrollBar>
+#include <QScopedValueRollback>
 #include <QSplitter>
 #include <QStyledItemDelegate>
 #include <algorithm>
@@ -33,9 +38,38 @@ QList<qint64> trackIds(TrackView *view) {
     return ids;
 }
 // Vector artwork stays sharp at all Windows display scales.
+QRectF recordQueueAction(const QRect &rect, int action) {
+    const auto cell = QRectF(rect).adjusted(5, 5, -5, -5);
+    const qreal side = qMin(cell.width() - 12, qreal(160));
+    return {cell.right() - 60 + action * 32, cell.top() + 4 + side + 13, 28, 28};
+}
+void drawRecordQueueAction(QPainter *p, const QRectF &rect, bool shuffled, const QPalette &palette,
+                           bool enabled, bool hovered) {
+    p->save();
+    p->translate(rect.topLeft());
+    p->setBrush(palette.color(hovered && enabled ? QPalette::AlternateBase : QPalette::Button));
+    p->setPen(QPen(palette.color(QPalette::Mid), 1));
+    p->drawRoundedRect(QRectF(0, 0, 28, 28), 4, 4);
+    p->setPen(QPen(palette.color(enabled ? QPalette::Active : QPalette::Disabled, QPalette::ButtonText),
+                   1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    p->setBrush(Qt::NoBrush);
+    if (shuffled) {
+        p->drawLine(QPointF(6, 8), QPointF(22, 20));
+        p->drawLine(QPointF(6, 20), QPointF(22, 8));
+        p->drawPolyline(QPolygonF{QPointF(17, 7), QPointF(22, 8), QPointF(21, 13)});
+        p->drawPolyline(QPolygonF{QPointF(17, 21), QPointF(22, 20), QPointF(21, 15)});
+    } else {
+        for (int y : {8, 14, 20}) p->drawLine(QPointF(5, y), QPointF(14, y));
+        p->drawLine(QPointF(21, 7), QPointF(21, 21));
+        p->drawPolyline(QPolygonF{QPointF(17, 17), QPointF(21, 21), QPointF(25, 17)});
+    }
+    p->restore();
+}
 class RecordCardDelegate : public QStyledItemDelegate {
   public:
-    using QStyledItemDelegate::QStyledItemDelegate;
+    explicit RecordCardDelegate(PlaylistView *view) : QStyledItemDelegate(view), m_view(view) {
+        view->viewport()->installEventFilter(this);
+    }
     QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override {
         return {184, 226};
     }
@@ -88,20 +122,81 @@ class RecordCardDelegate : public QStyledItemDelegate {
         font.setBold(true);
         p->setFont(font);
         p->setPen(palette.color(QPalette::Text));
-        QRectF title(cell.left(), box.bottom() + 11, cell.width(), 24);
+        const bool actions = m_view->property("recordQueueActions").toBool();
+        QRectF title(cell.left() + (actions ? 1 : 0), box.bottom() + (actions ? 8 : 11),
+                     actions ? cell.width() - 66 : cell.width(), 24);
         p->drawText(
-            title, Qt::AlignCenter,
+            title, actions ? Qt::AlignLeft | Qt::AlignVCenter : Qt::AlignCenter,
             QFontMetrics(font).elidedText(index.data().toString(), Qt::ElideRight, int(title.width())));
         font.setBold(false);
         font.setPixelSize(12);
         p->setFont(font);
         p->setPen(palette.color(QPalette::PlaceholderText));
-        p->drawText(QRectF(cell.left(), title.bottom() + 2, cell.width(), 20), Qt::AlignCenter,
+        p->drawText(QRectF(title.left(), title.bottom() + 2, title.width(), 20),
+                    actions ? Qt::AlignLeft | Qt::AlignVCenter : Qt::AlignCenter,
                     QString("%1 首 · %2")
                         .arg(index.data(Qt::UserRole + 1).toInt())
                         .arg(displayTime(index.data(Qt::UserRole + 2).toLongLong())));
+        if (actions) {
+            const auto cursor = m_view->viewport()->mapFromGlobal(QCursor::pos());
+            for (int i = 0; i < 2; ++i) {
+                const auto rect = recordQueueAction(option.rect, i);
+                drawRecordQueueAction(p, rect, i == 1, palette, index.data(Qt::UserRole + 1).toInt() > 0,
+                                      rect.contains(cursor));
+            }
+        }
         p->restore();
     }
+  protected:
+    bool eventFilter(QObject *object, QEvent *event) override {
+        if (object != m_view->viewport() || !m_view->property("recordQueueActions").toBool())
+            return QStyledItemDelegate::eventFilter(object, event);
+        const auto hit = [this](const QPoint &pos) {
+            const auto index = m_view->indexAt(pos);
+            if (!index.isValid()) return qMakePair(index, -1);
+            const auto rect = m_view->visualItemRect(m_view->item(index.row()));
+            for (int i = 0; i < 2; ++i)
+                if (recordQueueAction(rect, i).contains(pos)) return qMakePair(index, i);
+            return qMakePair(index, -1);
+        };
+        if (event->type() == QEvent::MouseMove) m_view->viewport()->update();
+        if (event->type() == QEvent::ToolTip) {
+            auto help = static_cast<QHelpEvent *>(event);
+            const auto target = hit(help->pos());
+            if (target.second >= 0) {
+                QToolTip::showText(help->globalPos(), target.second ? "打乱后加入播放队列" : "按歌单顺序加入播放队列", m_view);
+                return true;
+            }
+        }
+        if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonDblClick) {
+            auto mouse = static_cast<QMouseEvent *>(event);
+            const auto target = hit(mouse->position().toPoint());
+            if (mouse->button() == Qt::LeftButton && target.second >= 0) {
+                if (event->type() == QEvent::MouseButtonPress) { m_pressed = target.first; m_action = target.second; }
+                return true;
+            }
+        }
+        if (event->type() == QEvent::MouseButtonRelease) {
+            auto mouse = static_cast<QMouseEvent *>(event);
+            const auto target = hit(mouse->position().toPoint());
+            if (m_action >= 0) {
+                const int action = m_action;
+                const auto pressed = m_pressed;
+                m_action = -1;
+                m_pressed = QPersistentModelIndex();
+                if (mouse->button() == Qt::LeftButton && pressed.isValid() && target.first == pressed &&
+                    target.second == action && pressed.data(Qt::UserRole + 1).toInt() > 0)
+                    emit m_view->queueRequested(pressed.data(Qt::UserRole).toLongLong(), action == 1);
+                return true;
+            }
+            if (target.second >= 0) return true;
+        }
+        return QStyledItemDelegate::eventFilter(object, event);
+    }
+  private:
+    PlaylistView *m_view;
+    QPersistentModelIndex m_pressed;
+    int m_action = -1;
 };
 class PlayingNote : public QWidget {
   public:
@@ -190,7 +285,8 @@ QIcon queueActionIcon(int type, qreal ratio, const QColor &color) {
     return QIcon(pixmap);
 }
 } // namespace
-void configureRecordCards(PlaylistView *view) {
+void configureRecordCards(PlaylistView *view, bool queueActions) {
+    view->setProperty("recordQueueActions", queueActions);
     view->setViewMode(QListView::IconMode);
     view->setFlow(QListView::LeftToRight);
     view->setWrapping(true);
@@ -216,6 +312,37 @@ PlaybackQueueView::PlaybackQueueView(Library *library, QWidget *parent)
     setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     header()->setSectionResizeMode(0, QHeaderView::Stretch);
     setStyleSheet("QTreeWidget::item{padding:0;} QWidget#queueEntry{background:transparent;}");
+}
+void PlaybackQueueView::updateGeometries() {
+    if (m_updatingGeometry)
+        return;
+    QScopedValueRollback<bool> guard(m_updatingGeometry, true);
+    QTreeWidget::updateGeometries();
+    int rowsHeight = 0;
+    for (int row = 0; row < topLevelItemCount(); ++row)
+        rowsHeight += rowHeight(indexFromItem(topLevelItem(row)));
+    const auto margins = viewportMargins();
+    const int available = viewport()->height() + margins.top();
+    const int padding = rowsHeight > 0 ? qMax(0, available - rowsHeight) : 0;
+    if (padding != margins.top())
+        setViewportMargins(margins.left(), padding, margins.right(), margins.bottom());
+}
+bool PlaybackQueueView::event(QEvent *event) {
+    // The empty area reserved above the bottom-aligned viewport belongs to the
+    // scroll area itself, so forward its drops through the same queue handlers.
+    if (event->type() == QEvent::DragEnter) {
+        dragEnterEvent(static_cast<QDragEnterEvent *>(event));
+        return true;
+    }
+    if (event->type() == QEvent::DragMove) {
+        dragMoveEvent(static_cast<QDragMoveEvent *>(event));
+        return true;
+    }
+    if (event->type() == QEvent::Drop) {
+        dropEvent(static_cast<QDropEvent *>(event));
+        return true;
+    }
+    return QTreeWidget::event(event);
 }
 void PlaybackQueueView::dragEnterEvent(QDragEnterEvent *event) {
     if (event->mimeData()->hasFormat(TrackMime) || event->mimeData()->hasFormat(PlaylistMime))

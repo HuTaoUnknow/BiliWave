@@ -134,10 +134,13 @@ QList<LyricLine> Lrc::parse(const QString &text) {
 }
 QPair<QString, QString> Lrc::bilingualLines(const QString &text) {
     static const QRegularExpression han("[\\x{3400}-\\x{9fff}]");
-    static const QRegularExpression foreign("[\\p{Latin}\\p{Cyrillic}]");
+    static const QRegularExpression foreign("[\\p{Latin}\\p{Cyrillic}\\p{Greek}]");
+    static const QRegularExpression asian("[\\x{3040}-\\x{30ff}\\x{ac00}-\\x{d7af}]");
     QStringList original, translation;
     for (const auto &line : text.split('\n', Qt::SkipEmptyParts)) {
-        if (line.contains(han))
+        if (line.contains(asian))
+            original << line.trimmed();
+        else if (line.contains(han))
             translation << line.trimmed();
         else if (line.contains(foreign))
             original << line.trimmed();
@@ -145,6 +148,63 @@ QPair<QString, QString> Lrc::bilingualLines(const QString &text) {
     if (original.isEmpty() || translation.isEmpty())
         return {};
     return {original.join(' '), translation.join(' ')};
+}
+namespace {
+bool foreignLyric(const QString &text) {
+    static const QRegularExpression asian("[\\x{3040}-\\x{30ff}\\x{ac00}-\\x{d7af}]");
+    static const QRegularExpression foreign("[\\p{Latin}\\p{Cyrillic}\\p{Greek}]");
+    static const QRegularExpression han("[\\x{3400}-\\x{9fff}]");
+    return text.contains(asian) || (text.contains(foreign) && !text.contains(han));
+}
+bool chineseLyric(const QString &text) {
+    static const QRegularExpression han("[\\x{3400}-\\x{9fff}]");
+    return text.contains(han) && !foreignLyric(text);
+}
+}
+bool Lrc::isBilingual(const QList<LyricLine> &lines) {
+    int nearbyPairs = 0, originals = 0, translations = 0;
+    for (int i = 0; i < lines.size(); ++i) {
+        if (!bilingualLines(lines[i].text).first.isEmpty()) return true;
+        originals += foreignLyric(lines[i].text);
+        translations += chineseLyric(lines[i].text);
+        if (i > 0 && lines[i].ms - lines[i - 1].ms <= 1500 &&
+            ((foreignLyric(lines[i].text) && chineseLyric(lines[i - 1].text)) ||
+             (chineseLyric(lines[i].text) && foreignLyric(lines[i - 1].text))))
+            ++nearbyPairs;
+    }
+    return nearbyPairs >= 2 && qMin(originals, translations) * 2 >= qMax(originals, translations);
+}
+QPair<QString, QString> Lrc::displayAt(const QList<LyricLine> &lines, qint64 position, bool bilingual) {
+    const int last = indexAt(lines, position);
+    if (!bilingual)
+        return {last >= 0 ? lines[last].text : QString(), last + 1 < lines.size() ? lines[last + 1].text : QString()};
+    QString original, translated;
+    static const QRegularExpression kana("[\\x{3040}-\\x{30ff}]");
+    const bool japanese = std::any_of(lines.cbegin(), lines.cend(), [](const auto &line) { return line.text.contains(kana); });
+    // One sorted event list and one playback clock. At each timestamp update
+    // only the language present there; equal timestamps update both together.
+    for (int i = 0; i <= last;) {
+        int end = i;
+        QStringList words;
+        while (end <= last && lines[end].ms == lines[i].ms) {
+            const auto text = lines[end].text.trimmed();
+            if (text.isEmpty()) { original.clear(); translated.clear(); }
+            else words.append(text.split('\n', Qt::SkipEmptyParts));
+            ++end;
+        }
+        auto pair = bilingualLines(words.join('\n'));
+        // A Japanese line can consist entirely of Kanji. Old online/OCR LRC
+        // keeps the original first within an equal-time original/Chinese pair.
+        if (pair.first.isEmpty() && japanese && words.size() == 2 &&
+            chineseLyric(words[0]) && chineseLyric(words[1])) pair = {words[0], words[1]};
+        if (!pair.first.isEmpty()) { original = pair.first; translated = pair.second; }
+        else for (const auto &word : words) {
+            if (chineseLyric(word)) translated = word;
+            else original = word;
+        }
+        i = end;
+    }
+    return {original, translated};
 }
 QString Lrc::serialize(const QList<LyricLine> &lines) {
     QStringList output;

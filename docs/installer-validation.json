@@ -1,16 +1,16 @@
-﻿{
-    "version":  "1.11.1",
-    "installer":  "D:\\PC\\Project\\Qt\\bilibili_mp3\\dist\\BiliWave-1.11.1-Windows-x64-Setup.exe",
-    "sha256":  "6d5db82c4d927219960657db276cc77af66807d5680e34b22ea0bab3c0ed6fa3",
-    "installer_bytes":  221905563,
-    "installed_bytes":  699507403,
-    "installed":  true,
-    "application_startup":  true,
-    "system_only_path":  true,
-    "alignment_payload_absent":  true,
-    "bundled_runtime_imports":  true,
-    "subtitle_ocr":  true,
-    "audio_analysis_removed":  true,
-    "uninstall":  true,
-    "user_data_preserved":  true
+{
+  "version": "1.12.0",
+  "installer": "D:\\PC\\Project\\Qt\\bilibili_mp3\\dist\\BiliWave-1.12.0-Windows-x64-Setup.exe",
+  "sha256": "d9c9910dcb1aba346693094602a2918da4cae609880edb415b90aa6448809305",
+  "installer_bytes": 221914594,
+  "installed_bytes": 699686933.0,
+  "installed": true,
+  "application_startup": true,
+  "system_only_path": true,
+  "alignment_payload_absent": true,
+  "bundled_runtime_imports": true,
+  "subtitle_ocr": true,
+  "audio_analysis_removed": true,
+  "uninstall": true,
+  "user_data_preserved": true
 }

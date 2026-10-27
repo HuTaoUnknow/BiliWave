@@ -394,8 +394,8 @@ void ImportService::retryFailed() {
 
 LyricService::LyricService(Library *l, QSettings *s, QObject *p) : QObject(p), m_library(l), m_settings(s) {
     m_library->setAutoSimplifyLyrics(s->value("lyrics/autoSimplifyChinese", true).toBool());
-    connect(&m_online, &OnlineLyricsSearch::progress, this, &LyricService::message);
-    connect(&m_online, &OnlineLyricsSearch::finished, this,
+    connect(&m_online, &LyricsSourcesSearch::progress, this, &LyricService::message);
+    connect(&m_online, &LyricsSourcesSearch::finished, this,
             [this](const QList<QVariantMap> &options, const QString &error) {
                 if (!m_onlinePending)
                     return;
@@ -410,7 +410,7 @@ LyricService::LyricService(Library *l, QSettings *s, QObject *p) : QObject(p), m
                     else
                         emit message(
                             error.isEmpty()
-                                ? tr("找到 %1 个版本，按匹配度排序，请确认时间轴。").arg(options.size())
+                                ? tr("本批 %1 个版本已加入识别队列；点击继续搜索获取下一批（最多 5 个）。").arg(options.size())
                                 : error);
                 } else
                     emit message(error.isEmpty() ? tr("未找到歌词，可使用更简短的歌名或填写真实歌手重试。")
@@ -469,7 +469,8 @@ void LyricService::fetchOnline(qint64 id, const QString &keywords) {
     m_onlinePending = true;
     m_onlineTrack = id;
     emit activityChanged(true);
-    m_online.search(m_onlineWorkbench ? m_library->workbenchTrack(id) : m_library->track(id), keywords);
+    m_online.search(m_onlineWorkbench ? m_library->workbenchTrack(id) : m_library->track(id), keywords,
+                    LyricsSourcesSearch::selectedSources(m_settings));
 }
 void LyricService::useCandidate(qint64 id, const QVariantMap &c, bool workbench) {
     if (!Lrc::parse(c.value("syncedLyrics").toString()).isEmpty()) {
@@ -480,7 +481,7 @@ void LyricService::useCandidate(qint64 id, const QVariantMap &c, bool workbench)
                         : m_library->setLyrics(id, c.value("syncedLyrics").toString(), origin)))
             return;
         emit resultApplied(id, c.value("syncedLyrics").toString(), origin);
-        emit message(tr("已保存 LRCLIB 时间轴歌词"));
+        emit message(tr("已保存 %1 时间轴歌词").arg(provider));
     }
 }
 void LyricService::cancel() {

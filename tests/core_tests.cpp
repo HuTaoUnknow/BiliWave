@@ -131,6 +131,28 @@ class CoreTests : public QObject {
         QCOMPARE(Lrc::indexAt(lines, 5000), 2);
         QVERIFY(lines[2].text.isEmpty());
     }
+    void bilingualUsesOneSortedPlaybackClockAndOriginalTimestamps() {
+        const auto lines = Lrc::parse("[00:05.000]有形無形\n[00:03.000]光の中\n[00:01.000]夢の続き\n"
+                                      "[00:01.000]梦想仍在继续\n[00:03.200]光之中\n[00:05.000]有形无形");
+        QVERIFY(Lrc::isBilingual(lines));
+        QCOMPARE(Lrc::displayAt(lines, 1000, true), qMakePair(QString("夢の続き"), QString("梦想仍在继续")));
+        QCOMPARE(Lrc::displayAt(lines, 3000, true), qMakePair(QString("光の中"), QString("梦想仍在继续")));
+        QCOMPARE(Lrc::displayAt(lines, 3200, true), qMakePair(QString("光の中"), QString("光之中")));
+        QCOMPARE(Lrc::displayAt(lines, 5000, true), qMakePair(QString("有形無形"), QString("有形无形")));
+        // Seeking backward reconstructs the same pair, without a second clock.
+        QCOMPARE(Lrc::displayAt(lines, 1100, true), qMakePair(QString("夢の続き"), QString("梦想仍在继续")));
+        QCOMPARE(Lrc::displayAt(lines, 0, true), qMakePair(QString(), QString()));
+        const auto shifted = Lrc::parse("[00:01.000]Hello\n[00:03.000]Again\n"
+                                       "[00:01.200]你好\n[00:03.100]再次");
+        QVERIFY(Lrc::isBilingual(shifted));
+        QCOMPARE(Lrc::displayAt(shifted, 3100, true), qMakePair(QString("Again"), QString("再次")));
+        QCOMPARE(Lrc::displayAt(shifted, 1000, true), qMakePair(QString("Hello"), QString()));
+        const auto single = Lrc::parse("[00:01.000]第一句\n[00:03.000]第二句");
+        QVERIFY(!Lrc::isBilingual(single));
+        QCOMPARE(Lrc::displayAt(single, 1000, false), qMakePair(QString("第一句"), QString("第二句")));
+        // No minority of all-Kanji lines may turn monolingual Japanese into translations.
+        QVERIFY(!Lrc::isBilingual(Lrc::parse("[00:01]あの空\n[00:02]光\n[00:03]その先\n[00:04]夢の中\n[00:05]歩いて")));
+    }
     void lyrics() {
         auto lines = Lrc::parse("[ar:Test]\n[offset:-150]\n[00:02.30][00:04.005]重复句\n[00:01.2]首句\n[00:"
                                 "03.000]\n[00:89.00]无效\n");

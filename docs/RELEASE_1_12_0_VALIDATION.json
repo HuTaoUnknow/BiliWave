@@ -1,0 +1,127 @@
+{
+  "version": "1.12.0",
+  "checked_at": "2026-10-27T22:18:33.192179+08:00",
+  "release": "https://github.com/HuTaoUnknow/BiliWave/releases/tag/v1.12.0",
+  "artifacts": [
+    {
+      "file": "BiliWave-1.12.0-Windows-x64-Setup.exe",
+      "bytes": 221914594,
+      "MiB": 211.63,
+      "sha256": "d9c9910dcb1aba346693094602a2918da4cae609880edb415b90aa6448809305"
+    },
+    {
+      "file": "BiliWave-Lite-1.12.0-Windows-x64-Setup.exe",
+      "bytes": 105552729,
+      "MiB": 100.66,
+      "sha256": "6643ee3d2d5ec775a8a1e14f64f92f5b77073b98c7321ba4c3ef0f095bf42084"
+    }
+  ],
+  "installer_checks": {
+    "screen": {
+      "version": "1.12.0",
+      "sha256": "d9c9910dcb1aba346693094602a2918da4cae609880edb415b90aa6448809305",
+      "installer_bytes": 221914594,
+      "installed_bytes": 699686933.0,
+      "installed": true,
+      "application_startup": true,
+      "system_only_path": true,
+      "alignment_payload_absent": true,
+      "bundled_runtime_imports": true,
+      "subtitle_ocr": true,
+      "audio_analysis_removed": true,
+      "uninstall": true,
+      "user_data_preserved": true
+    },
+    "lite": {
+      "version": "1.12.0",
+      "edition": "Lite",
+      "installer_bytes": 105552729,
+      "installed_bytes": 325161851.0,
+      "sha256": "6643ee3d2d5ec775a8a1e14f64f92f5b77073b98c7321ba4c3ef0f095bf42084",
+      "installed": true,
+      "application_startup": true,
+      "system_only_path": true,
+      "lyric_payload_absent": true,
+      "direct_library_import": true,
+      "decoded": true,
+      "seeked": true,
+      "uninstall": true,
+      "user_data_preserved": true
+    }
+  },
+  "regression": {
+    "build": {
+      "workbench": {
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      "online-lyrics": {
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      "ducking": {
+        "passed": 9,
+        "failed": 0,
+        "skipped": 1
+      },
+      "core": {
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      "integration": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      "redesign": {
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0
+      },
+      "lyric-workflow": {
+        "passed": 17,
+        "failed": 0,
+        "skipped": 4
+      }
+    },
+    "build-lite": {
+      "workbench": {
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      "online-lyrics": {
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      "ducking": {
+        "passed": 9,
+        "failed": 0,
+        "skipped": 1
+      },
+      "core": {
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      "lite": {
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "regression_notes": [
+    "Updated the old next-candidate test to review and apply queued results; redesign suite passed on rerun.",
+    "Live external lyric requests are opt-in and were not repeated for this release.",
+    "Alignment tests skipped because alignment models are excluded; physical voice trigger test is opt-in."
+  ],
+  "release_exe_sha256": {
+    "release-screen": "22c8d5db0b5df83318907983459186c45727c420b55e941216c3b3cfa7308ae2",
+    "release-lite": "0898c6737bad644892ae55a09042c56492570cae49446e5923d06aaa962b5e6a"
+  }
+}

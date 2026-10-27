@@ -746,10 +746,10 @@ void MainWindow::updateCurrent() {
     auto fingerprint = t.value("lrc").toString() + QString::number(t.value("lyric_offset").toInt());
     if (fingerprint != m_lyricFingerprint) {
         m_lyricFingerprint = fingerprint;
-        m_lines = Lrc::parse(t.value("lrc").toString());
-        m_bilingualLyrics = std::any_of(m_lines.cbegin(), m_lines.cend(), [](const LyricLine &line) {
-            return !Lrc::bilingualLines(line.text).first.isEmpty();
-        });
+        m_lines = Lrc::parse(t.value("raw_lrc", t.value("lrc")).toString());
+        m_bilingualLyrics = Lrc::isBilingual(m_lines);
+        if (!m_bilingualLyrics)
+            m_lines = Lrc::parse(t.value("lrc").toString());
     }
     m_float->refresh();
     updateLyrics();
@@ -760,24 +760,14 @@ void MainWindow::updateLyrics() {
     const auto t = m_previewTrack && m_previewTrack == m_player.currentId()
                        ? m_library->workbenchTrack(m_previewTrack)
                        : m_library->track(m_player.currentId());
-    const int index = Lrc::indexAt(m_lines, m_player.media()->position() + t.value("lyric_offset").toInt());
     QString current, next;
     if (m_lines.isEmpty()) {
         current = t.value("title").toString();
         next = t.isEmpty() ? tr("拖入歌曲或歌单，开始聆听") : tr("尚无时间轴歌词 · 可匹配或导入 LRC");
     } else {
-        if (index >= 0)
-            current = m_lines[index].text;
-        if (index + 1 < m_lines.size())
-            next = m_lines[index + 1].text;
-        const auto pair = Lrc::bilingualLines(current);
-        if (m_bilingualLyrics) {
-            next.clear();
-            if (!pair.first.isEmpty()) {
-                current = pair.first;
-                next = pair.second;
-            }
-        }
+        const auto pair = Lrc::displayAt(m_lines, m_player.media()->position() + t.value("lyric_offset").toInt(), m_bilingualLyrics);
+        current = pair.first;
+        next = m_bilingualLyrics ? Lrc::simplifiedChinese(pair.second, m_settings->value("lyrics/autoSimplifyChinese", true).toBool()) : pair.second;
     }
     m_currentLyric->setText(QFontMetrics(m_currentLyric->font())
                                 .elidedText(current, Qt::ElideRight, qMax(300, m_currentLyric->width())));
