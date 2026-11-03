@@ -11,20 +11,23 @@
 #ifndef LiteEdition
   #define LiteEdition 0
 #endif
+#ifndef UpgradeTestMode
+  #define UpgradeTestMode 0
+#endif
 #if Int(LiteEdition)
   #define EditionTitle "BiliWave 简装版 · 线上匹配"
   #define ProductName "BiliWave Lite"
-  #define ProductId "{{EE37A2DA-4D0B-4BCD-97E3-3B3B6141F838}"
+  #define ProductId "{EE37A2DA-4D0B-4BCD-97E3-3B3B6141F838}"
   #define PackageName "BiliWave-Lite-" + AppVersion + "-Windows-x64-Setup"
 #else
   #define EditionTitle "BiliWave 加装版 · 屏幕识别"
   #define ProductName "BiliWave"
-  #define ProductId "{{B1A2A5B4-8F18-449F-8E87-DCB27977DDE2}"
+  #define ProductId "{B1A2A5B4-8F18-449F-8E87-DCB27977DDE2}"
   #define PackageName "BiliWave-" + AppVersion + "-Windows-x64-Setup"
 #endif
 
 [Setup]
-AppId={#ProductId}
+AppId={code:GetInstallationId}
 AppName={#EditionTitle}
 AppVersion={#AppVersion}
 AppVerName={#ProductName} {#AppVersion}
@@ -32,17 +35,23 @@ AppPublisher=BiliWave
 VersionInfoVersion={#AppVersion}
 VersionInfoDescription={#ProductName} 安装程序
 VersionInfoProductName={#ProductName}
-DefaultDirName={localappdata}\Programs\{#ProductName}
-DefaultGroupName={#ProductName}
+DefaultDirName={code:GetInstallDirectory}
+DefaultGroupName={code:GetInstallationName}
+UsePreviousAppDir=no
+UsePreviousGroup=no
+UsePreviousTasks=no
+UsePreviousLanguage=no
 DisableProgramGroupPage=yes
 DisableDirPage=no
 PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=commandline
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 WizardStyle=modern
 SetupLogging=yes
 UninstallDisplayIcon={app}\BiliWave.exe
+UninstallDisplayName={code:GetUninstallName}
 CreateUninstallRegKey=not IsVerificationInstall
 OutputDir={#PackageOutputDir}
 OutputBaseFilename={#PackageName}
@@ -66,9 +75,12 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Excludes: "\data,\data\*,*.lib,*.a,*.pdb,BiliWave-before-*.exe,__pycache__,*.pyc"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{userprograms}\{#ProductName}\{#ProductName}"; Filename: "{app}\BiliWave.exe"; WorkingDir: "{app}"; Check: not IsVerificationInstall
-Name: "{userprograms}\{#ProductName}\卸载 {#ProductName}"; Filename: "{uninstallexe}"; Check: not IsVerificationInstall
-Name: "{userdesktop}\{#ProductName}"; Filename: "{app}\BiliWave.exe"; WorkingDir: "{app}"; Tasks: desktopicon; Check: not IsVerificationInstall
+Name: "{autoprograms}\{code:GetInstallationName}\{code:GetInstallationName}"; Filename: "{app}\BiliWave.exe"; WorkingDir: "{app}"; Check: not IsVerificationInstall
+Name: "{autoprograms}\{code:GetInstallationName}\卸载 {code:GetInstallationName}"; Filename: "{uninstallexe}"; Check: not IsVerificationInstall
+Name: "{autodesktop}\{code:GetInstallationName}"; Filename: "{app}\BiliWave.exe"; WorkingDir: "{app}"; Tasks: desktopicon; Check: not IsVerificationInstall
+
+[Registry]
+Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Uninstall\{code:GetInstallationId}_is1"; ValueType: string; ValueName: "BiliWaveInstanceName"; ValueData: "{code:GetInstallationName}"; Check: not IsVerificationInstall
 
 [Run]
 Filename: "{app}\BiliWave.exe"; Description: "运行 {#ProductName}"; Flags: nowait postinstall skipifsilent; Check: not IsVerificationInstall
@@ -81,16 +93,4 @@ begin
   Result := ExpandConstant('{param:VERIFYINSTALL|0}') = '1';
 end;
 
-function InitializeSetup: Boolean;
-var
-  Target: String;
-begin
-  Result := True;
-  if IsVerificationInstall then begin
-    Target := ExpandConstant('{param:DIR|}');
-    if Target = '' then begin
-      Log('Verification requires an explicit destination directory.');
-      Result := False;
-    end;
-  end;
-end;
+#include "InstallChoice.iss"

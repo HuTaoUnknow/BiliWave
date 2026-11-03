@@ -2,6 +2,7 @@
 #include <QObject>
 #include <QSqlDatabase>
 #include <QVariantMap>
+#include <QSet>
 
 using Track = QVariantMap;
 class Library : public QObject {
@@ -22,6 +23,9 @@ class Library : public QObject {
     QList<Track> stagedTracks() const;
     Track track(qint64 id) const;
     QList<Track> tracks(qint64 playlist = 0, const QString &search = {}) const;
+    QList<Track> trackSummaries(qint64 playlist = 0, const QString &search = {}) const;
+    QSet<qint64> trackIds() const;
+    QSet<qint64> assignedTrackIds() const;
     QList<QVariantMap> playlists() const;
     qint64 createPlaylist(const QString &name);
     bool renamePlaylist(qint64 id, const QString &name);
@@ -37,7 +41,7 @@ class Library : public QObject {
     bool beginWorkbench(qint64 id);
     Track workbenchTrack(qint64 id) const;
     bool setWorkbenchMetadata(qint64 id, const QString &title, const QString &artist);
-    bool setWorkbenchLyrics(qint64 id, const QString &lrc, const QString &source);
+    bool setWorkbenchLyrics(qint64 id, const QString &lrc, const QString &source, int offset = 0);
     bool setWorkbenchOffset(qint64 id, int milliseconds);
     bool saveWorkbench(qint64 id, bool includeLyrics = true);
   signals:
@@ -46,6 +50,7 @@ class Library : public QObject {
 
   private:
     Track lyricView(Track track) const;
+    QList<Track> queryTracks(qint64 playlist, const QString &search, bool lyrics) const;
     bool m_autoSimplifyLyrics = true;
     QSqlDatabase m_db;
     QString m_directory, m_connection, m_error;

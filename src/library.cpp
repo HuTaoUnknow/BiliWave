@@ -157,8 +157,15 @@ Track Library::track(qint64 id) const {
     return q.exec() && q.next() ? lyricView(row(q)) : Track{};
 }
 QList<Track> Library::tracks(qint64 playlist, const QString &search) const {
+    return queryTracks(playlist, search, true);
+}
+QList<Track> Library::trackSummaries(qint64 playlist, const QString &search) const {
+    return queryTracks(playlist, search, false);
+}
+QList<Track> Library::queryTracks(qint64 playlist, const QString &search, bool lyrics) const {
     QSqlQuery q(m_db);
-    QString sql = "SELECT t.* FROM tracks t ";
+    QString sql = lyrics ? "SELECT t.* FROM tracks t "
+                         : "SELECT t.id,t.title,t.artist,t.path,t.codec,t.duration,t.storage,t.filesize FROM tracks t ";
     if (playlist)
         sql += "JOIN playlist_tracks p ON p.track_id=t.id WHERE p.playlist_id=? AND ";
     else
@@ -174,13 +181,28 @@ QList<Track> Library::tracks(qint64 playlist, const QString &search) const {
     QList<Track> out;
     if (q.exec())
         while (q.next())
-            out << lyricView(row(q));
+            out << (lyrics ? lyricView(row(q)) : row(q));
     return out;
+}
+QSet<qint64> Library::trackIds() const {
+    QSqlQuery query(m_db);
+    query.exec("SELECT id FROM tracks");
+    QSet<qint64> ids;
+    while (query.next()) ids.insert(query.value(0).toLongLong());
+    return ids;
+}
+QSet<qint64> Library::assignedTrackIds() const {
+    QSqlQuery query(m_db);
+    query.exec("SELECT DISTINCT p.track_id FROM playlist_tracks p JOIN tracks t ON t.id=p.track_id WHERE t.staged=0");
+    QSet<qint64> ids;
+    while (query.next()) ids.insert(query.value(0).toLongLong());
+    return ids;
 }
 QList<QVariantMap> Library::playlists() const {
     QSqlQuery q(m_db);
-    q.exec("SELECT p.id,p.name,count(pt.track_id) AS count FROM playlists p LEFT JOIN playlist_tracks pt ON "
-           "pt.playlist_id=p.id GROUP BY p.id ORDER BY p.id");
+    q.exec("SELECT p.id,p.name,count(t.id) AS count,COALESCE(sum(t.duration),0) AS duration "
+           "FROM playlists p LEFT JOIN playlist_tracks pt ON pt.playlist_id=p.id "
+           "LEFT JOIN tracks t ON t.id=pt.track_id AND t.staged=0 GROUP BY p.id ORDER BY p.id");
     QList<QVariantMap> out;
     while (q.next())
         out << row(q);
@@ -372,13 +394,14 @@ bool Library::setWorkbenchMetadata(qint64 id, const QString &title, const QStrin
         emit workbenchChanged(id);
     return ok;
 }
-bool Library::setWorkbenchLyrics(qint64 id, const QString &lrc, const QString &source) {
+bool Library::setWorkbenchLyrics(qint64 id, const QString &lrc, const QString &source, int offset) {
     if (!beginWorkbench(id))
         return false;
     QSqlQuery q(m_db);
-    q.prepare("UPDATE workbench_tracks SET lrc=?,lyric_source=?,lyric_offset=0 WHERE track_id=?");
+    q.prepare("UPDATE workbench_tracks SET lrc=?,lyric_source=?,lyric_offset=? WHERE track_id=?");
     q.addBindValue(lrc);
     q.addBindValue(source);
+    q.addBindValue(offset);
     q.addBindValue(id);
     const bool ok = q.exec() && q.numRowsAffected() == 1;
     if (ok)

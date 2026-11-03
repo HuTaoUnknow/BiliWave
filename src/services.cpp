@@ -10,6 +10,7 @@
 #include <QNetworkReply>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QSet>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QThread>
@@ -124,11 +125,52 @@ void ImportService::enqueue(const QString &input, bool staged) {
             return;
         }
     }
-    Task task{QUuid::createUuid().toString(QUuid::WithoutBraces), normalized, staged};
+    Task task{QUuid::createUuid().toString(QUuid::WithoutBraces), normalized, staged, {}, true};
+    enqueueTask(task);
+}
+void ImportService::enqueueTask(const Task &task) {
     m_pending.enqueue(task);
-    emit status(task.id, input, tr("等待中"));
+    emit status(task.id, task.input, tr("等待中"));
     if (!m_busy)
         startNext();
+}
+bool ImportService::acceptsLocalFile(const QString &path) {
+    const QFileInfo file(path);
+    static const QStringList extensions{"m4s", "m4a", "flac", "mp3", "wav", "wave", "opus", "ogg",
+                                         "oga", "aac", "alac", "mp4", "mka", "wma", "ape", "aif", "aiff"};
+    return file.isFile() && extensions.contains(file.suffix().toLower());
+}
+void ImportService::enqueueLocalFiles(const QStringList &paths) {
+    QStringList skipped, unsupported;
+    QSet<QString> queued;
+    auto add = [this, &queued](const QFileInfo &file, const QString &playlist) {
+        const auto path = file.canonicalFilePath();
+        const auto key = path + '\n' + playlist;
+        if (queued.contains(key)) return;
+        queued.insert(key);
+        enqueueTask({QUuid::createUuid().toString(QUuid::WithoutBraces), path, false, playlist, false});
+    };
+    for (const auto &path : paths) {
+        const QFileInfo input(path);
+        if (input.isDir()) {
+            const QDir dir(input.absoluteFilePath());
+            for (const auto &entry : dir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot,
+                                                       QDir::Name | QDir::IgnoreCase)) {
+                if (entry.isDir()) skipped << entry.absoluteFilePath();
+                else if (acceptsLocalFile(entry.absoluteFilePath())) add(entry, dir.dirName());
+            }
+        } else if (acceptsLocalFile(path)) {
+            add(input, tr("导入"));
+        } else {
+            unsupported << input.fileName();
+        }
+    }
+    QStringList notices;
+    if (!skipped.isEmpty())
+        notices << tr("只导入文件夹第一层的音频，以下子文件夹已跳过：\n%1").arg(skipped.join('\n'));
+    if (!unsupported.isEmpty())
+        notices << tr("以下项目不是支持的音频文件，已跳过：\n%1").arg(unsupported.join('\n'));
+    if (!notices.isEmpty()) emit localImportNotice(notices.join("\n\n"));
 }
 void ImportService::startNext() {
     if (m_busy || m_pending.isEmpty())
@@ -316,10 +358,23 @@ void ImportService::complete() {
     // A local sidecar is used only when it contains a real time axis.
     const auto sidecar = QFileInfo(m_raw).absolutePath() + "/" + QFileInfo(m_raw).completeBaseName() + ".lrc";
     QFile lrc(sidecar);
-    if (recognitionFeaturesEnabled() && lrc.open(QIODevice::ReadOnly)) {
+    if (m_task.importLyrics && recognitionFeaturesEnabled() && lrc.open(QIODevice::ReadOnly)) {
         auto text = QString::fromUtf8(lrc.readAll());
         if (!Lrc::parse(text).isEmpty())
             m_library->setLyrics(id, text, "本地 LRC");
+    }
+    if (!m_task.playlistName.isEmpty()) {
+        qint64 playlist = 0;
+        for (const auto &existing : m_library->playlists())
+            if (existing.value("name").toString() == m_task.playlistName) {
+                playlist = existing.value("id").toLongLong();
+                break;
+            }
+        if (!playlist) playlist = m_library->createPlaylist(m_task.playlistName);
+        if (!playlist || !m_library->addToPlaylist(playlist, {id})) {
+            fail(tr("音频已导入，但加入歌单失败，请重试"));
+            return;
+        }
     }
     emit status(m_task.id, m_title,
                 tr("完成 · %1 · 原轨已保留").arg(m_track.value("codec").toString().toUpper()));
@@ -389,7 +444,7 @@ void ImportService::retryFailed() {
     auto failed = m_failed;
     m_failed.clear();
     for (const auto &task : failed)
-        enqueue(task.input, task.staged);
+        enqueueTask(task);
 }
 
 LyricService::LyricService(Library *l, QSettings *s, QObject *p) : QObject(p), m_library(l), m_settings(s) {

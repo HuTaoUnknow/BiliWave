@@ -6,70 +6,28 @@
 #include <QDropEvent>
 #include <QHeaderView>
 #include <QMenu>
-#include <QMouseEvent>
-#include <QHelpEvent>
-#include <QToolTip>
-#include <QPersistentModelIndex>
 #include <QPainter>
 #include <QPainterPath>
+#include <QRandomGenerator>
 #include <QScrollBar>
 #include <QScopedValueRollback>
 #include <QSplitter>
 #include <QStyledItemDelegate>
 #include <algorithm>
 
+#include "uihelpers.h"
+using namespace Ui;
+
 namespace {
-QPushButton *playButton(const QString &text, const QString &name) {
-    auto button = new QPushButton(text);
-    button->setObjectName(name);
-    button->setCursor(Qt::PointingHandCursor);
-    return button;
-}
-QLabel *playLabel(const QString &text, const QString &name = "muted") {
-    auto label = new QLabel(text);
-    label->setObjectName(name);
-    label->setTextFormat(Qt::PlainText);
-    return label;
-}
 QList<qint64> trackIds(TrackView *view) {
     QList<qint64> ids;
     for (int i = 0; i < view->topLevelItemCount(); ++i)
         ids << view->topLevelItem(i)->data(0, Qt::UserRole).toLongLong();
     return ids;
 }
-// Vector artwork stays sharp at all Windows display scales.
-QRectF recordQueueAction(const QRect &rect, int action) {
-    const auto cell = QRectF(rect).adjusted(5, 5, -5, -5);
-    const qreal side = qMin(cell.width() - 12, qreal(160));
-    return {cell.right() - 60 + action * 32, cell.top() + 4 + side + 13, 28, 28};
-}
-void drawRecordQueueAction(QPainter *p, const QRectF &rect, bool shuffled, const QPalette &palette,
-                           bool enabled, bool hovered) {
-    p->save();
-    p->translate(rect.topLeft());
-    p->setBrush(palette.color(hovered && enabled ? QPalette::AlternateBase : QPalette::Button));
-    p->setPen(QPen(palette.color(QPalette::Mid), 1));
-    p->drawRoundedRect(QRectF(0, 0, 28, 28), 4, 4);
-    p->setPen(QPen(palette.color(enabled ? QPalette::Active : QPalette::Disabled, QPalette::ButtonText),
-                   1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-    p->setBrush(Qt::NoBrush);
-    if (shuffled) {
-        p->drawLine(QPointF(6, 8), QPointF(22, 20));
-        p->drawLine(QPointF(6, 20), QPointF(22, 8));
-        p->drawPolyline(QPolygonF{QPointF(17, 7), QPointF(22, 8), QPointF(21, 13)});
-        p->drawPolyline(QPolygonF{QPointF(17, 21), QPointF(22, 20), QPointF(21, 15)});
-    } else {
-        for (int y : {8, 14, 20}) p->drawLine(QPointF(5, y), QPointF(14, y));
-        p->drawLine(QPointF(21, 7), QPointF(21, 21));
-        p->drawPolyline(QPolygonF{QPointF(17, 17), QPointF(21, 21), QPointF(25, 17)});
-    }
-    p->restore();
-}
 class RecordCardDelegate : public QStyledItemDelegate {
   public:
-    explicit RecordCardDelegate(PlaylistView *view) : QStyledItemDelegate(view), m_view(view) {
-        view->viewport()->installEventFilter(this);
-    }
+    explicit RecordCardDelegate(PlaylistView *view) : QStyledItemDelegate(view) {}
     QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override {
         return {184, 226};
     }
@@ -122,81 +80,21 @@ class RecordCardDelegate : public QStyledItemDelegate {
         font.setBold(true);
         p->setFont(font);
         p->setPen(palette.color(QPalette::Text));
-        const bool actions = m_view->property("recordQueueActions").toBool();
-        QRectF title(cell.left() + (actions ? 1 : 0), box.bottom() + (actions ? 8 : 11),
-                     actions ? cell.width() - 66 : cell.width(), 24);
+        QRectF title(cell.left(), box.bottom() + 11, cell.width(), 24);
         p->drawText(
-            title, actions ? Qt::AlignLeft | Qt::AlignVCenter : Qt::AlignCenter,
+            title, Qt::AlignCenter,
             QFontMetrics(font).elidedText(index.data().toString(), Qt::ElideRight, int(title.width())));
         font.setBold(false);
         font.setPixelSize(12);
         p->setFont(font);
         p->setPen(palette.color(QPalette::PlaceholderText));
         p->drawText(QRectF(title.left(), title.bottom() + 2, title.width(), 20),
-                    actions ? Qt::AlignLeft | Qt::AlignVCenter : Qt::AlignCenter,
+                    Qt::AlignCenter,
                     QString("%1 首 · %2")
                         .arg(index.data(Qt::UserRole + 1).toInt())
                         .arg(displayTime(index.data(Qt::UserRole + 2).toLongLong())));
-        if (actions) {
-            const auto cursor = m_view->viewport()->mapFromGlobal(QCursor::pos());
-            for (int i = 0; i < 2; ++i) {
-                const auto rect = recordQueueAction(option.rect, i);
-                drawRecordQueueAction(p, rect, i == 1, palette, index.data(Qt::UserRole + 1).toInt() > 0,
-                                      rect.contains(cursor));
-            }
-        }
         p->restore();
     }
-  protected:
-    bool eventFilter(QObject *object, QEvent *event) override {
-        if (object != m_view->viewport() || !m_view->property("recordQueueActions").toBool())
-            return QStyledItemDelegate::eventFilter(object, event);
-        const auto hit = [this](const QPoint &pos) {
-            const auto index = m_view->indexAt(pos);
-            if (!index.isValid()) return qMakePair(index, -1);
-            const auto rect = m_view->visualItemRect(m_view->item(index.row()));
-            for (int i = 0; i < 2; ++i)
-                if (recordQueueAction(rect, i).contains(pos)) return qMakePair(index, i);
-            return qMakePair(index, -1);
-        };
-        if (event->type() == QEvent::MouseMove) m_view->viewport()->update();
-        if (event->type() == QEvent::ToolTip) {
-            auto help = static_cast<QHelpEvent *>(event);
-            const auto target = hit(help->pos());
-            if (target.second >= 0) {
-                QToolTip::showText(help->globalPos(), target.second ? "打乱后加入播放队列" : "按歌单顺序加入播放队列", m_view);
-                return true;
-            }
-        }
-        if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonDblClick) {
-            auto mouse = static_cast<QMouseEvent *>(event);
-            const auto target = hit(mouse->position().toPoint());
-            if (mouse->button() == Qt::LeftButton && target.second >= 0) {
-                if (event->type() == QEvent::MouseButtonPress) { m_pressed = target.first; m_action = target.second; }
-                return true;
-            }
-        }
-        if (event->type() == QEvent::MouseButtonRelease) {
-            auto mouse = static_cast<QMouseEvent *>(event);
-            const auto target = hit(mouse->position().toPoint());
-            if (m_action >= 0) {
-                const int action = m_action;
-                const auto pressed = m_pressed;
-                m_action = -1;
-                m_pressed = QPersistentModelIndex();
-                if (mouse->button() == Qt::LeftButton && pressed.isValid() && target.first == pressed &&
-                    target.second == action && pressed.data(Qt::UserRole + 1).toInt() > 0)
-                    emit m_view->queueRequested(pressed.data(Qt::UserRole).toLongLong(), action == 1);
-                return true;
-            }
-            if (target.second >= 0) return true;
-        }
-        return QStyledItemDelegate::eventFilter(object, event);
-    }
-  private:
-    PlaylistView *m_view;
-    QPersistentModelIndex m_pressed;
-    int m_action = -1;
 };
 class PlayingNote : public QWidget {
   public:
@@ -285,8 +183,7 @@ QIcon queueActionIcon(int type, qreal ratio, const QColor &color) {
     return QIcon(pixmap);
 }
 } // namespace
-void configureRecordCards(PlaylistView *view, bool queueActions) {
-    view->setProperty("recordQueueActions", queueActions);
+void configureRecordCards(PlaylistView *view) {
     view->setViewMode(QListView::IconMode);
     view->setFlow(QListView::LeftToRight);
     view->setWrapping(true);
@@ -373,8 +270,8 @@ QWidget *MainWindow::createPlaybackPage() {
     browser->setContentsMargins(0, 0, 16, 0);
     browser->setSpacing(12);
     auto toggleRow = new QHBoxLayout;
-    m_browseSongs = playButton("歌曲", "playbackSongsTab");
-    m_browsePlaylists = playButton("歌单", "playbackPlaylistsTab");
+    m_browseSongs = action("歌曲", "playbackSongsTab");
+    m_browsePlaylists = action("歌单", "playbackPlaylistsTab");
     auto group = new QButtonGroup(this);
     group->setExclusive(true);
     for (auto button : {m_browseSongs, m_browsePlaylists}) {
@@ -392,19 +289,28 @@ QWidget *MainWindow::createPlaybackPage() {
     m_browseFilter->setPlaceholderText("筛选歌曲名称");
     m_browseFilter->setClearButtonEnabled(true);
     filterRow->addWidget(m_browseFilter, 1);
-    auto playAll = playButton("播放列表", "playbackPlayAll");
+    auto playAll = action("播放列表", "playbackPlayAll");
     playAll->setProperty("primary", true);
     filterRow->addWidget(playAll);
     browser->addLayout(filterRow);
     auto headingRow = new QHBoxLayout;
-    m_browseBack = playButton("← 返回歌单", "playbackPlaylistBack");
+    m_browseBack = action("← 返回歌单", "playbackPlaylistBack");
     headingRow->addWidget(m_browseBack);
-    m_browseHeading = playLabel("全部歌曲", "section");
+    m_browseHeading = label("全部歌曲", "section");
+    m_browseHeading->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_browseHeading->setMinimumWidth(0);
     headingRow->addWidget(m_browseHeading, 1);
+    m_browseSequential = action("顺序播放", "playbackPlaylistSequential");
+    m_browseShuffle = action("随机播放", "playbackPlaylistShuffle");
+    m_browseSequential->setToolTip("按歌单顺序加入播放队列。");
+    m_browseShuffle->setToolTip("打乱歌单歌曲后加入播放队列。");
+    headingRow->addWidget(m_browseSequential);
+    headingRow->addWidget(m_browseShuffle);
     browser->addLayout(headingRow);
-    m_browseSummary = playLabel("");
+    m_browseSummary = label("", "muted");
     browser->addWidget(m_browseSummary);
     m_browsePages = new QStackedWidget;
+    m_browsePages->setObjectName("playbackBrowserPages");
     m_browseTracks = new TrackView;
     m_browseTracks->setObjectName("playbackTracks");
     m_browseTracks->hideColumn(1);
@@ -424,19 +330,9 @@ QWidget *MainWindow::createPlaybackPage() {
     m_browsePlaylistCards = new PlaylistView;
     m_browsePlaylistCards->setObjectName("playbackPlaylistCards");
     configureRecordCards(m_browsePlaylistCards);
-    m_browsePlaylistCards->setViewMode(QListView::IconMode);
-    m_browsePlaylistCards->setFlow(QListView::LeftToRight);
-    m_browsePlaylistCards->setWrapping(true);
-    m_browsePlaylistCards->setResizeMode(QListView::Adjust);
-    m_browsePlaylistCards->setMovement(QListView::Static);
-    m_browsePlaylistCards->setGridSize(QSize(184, 226));
-    m_browsePlaylistCards->setSpacing(4);
     m_browsePlaylistCards->setDragEnabled(true);
     m_browsePlaylistCards->setAcceptDrops(false);
     m_browsePlaylistCards->setDragDropMode(QAbstractItemView::DragOnly);
-    m_browsePlaylistCards->setMouseTracking(true);
-    m_browsePlaylistCards->setStyleSheet(
-        "QListWidget{background:transparent;border:0;} QListWidget::item{padding:0;border:0;}");
     m_browsePages->addWidget(m_browsePlaylistCards);
     browser->addWidget(m_browsePages, 1);
     split->addWidget(left);
@@ -448,8 +344,8 @@ QWidget *MainWindow::createPlaybackPage() {
     queue->setContentsMargins(16, 0, 0, 0);
     queue->setSpacing(10);
     auto queueHeading = new QHBoxLayout;
-    queueHeading->addWidget(playLabel("播放队列", "section"), 1);
-    auto clear = playButton("清空", "clearPlaybackQueue");
+    queueHeading->addWidget(label("播放队列", "section"), 1);
+    auto clear = action("清空", "clearPlaybackQueue");
     queueHeading->addWidget(clear);
     queue->addLayout(queueHeading);
     m_playbackQueue = new PlaybackQueueView(m_library);
@@ -483,6 +379,8 @@ QWidget *MainWindow::createPlaybackPage() {
         m_browseFilter->clear();
         refreshPlaybackBrowser();
     });
+    connect(m_browseSequential, &QPushButton::clicked, this, [this] { queuePlaylist(m_browsePlaylist, false); });
+    connect(m_browseShuffle, &QPushButton::clicked, this, [this] { queuePlaylist(m_browsePlaylist, true); });
     connect(m_browseTracks, &QTreeWidget::itemDoubleClicked, this, [this] { playSelection(m_browseTracks); });
     connect(playAll, &QPushButton::clicked, this, [this] {
         if (m_browsePages->currentIndex() == 0)
@@ -520,7 +418,7 @@ QWidget *MainWindow::createPlaybackPage() {
         menu.exec(m_playbackQueue->viewport()->mapToGlobal(pos));
     });
     connect(clear, &QPushButton::clicked, this, [this] { m_player.setQueue({}); });
-    connect(&m_player, &Player::currentChanged, this, &MainWindow::refreshPlaybackBrowser);
+    connect(&m_player, &Player::currentChanged, this, &MainWindow::highlightCurrentTrack);
     return page;
 }
 
@@ -541,21 +439,21 @@ void MainWindow::refreshPlaybackBrowser() {
     const bool cards = playlists && !m_browsePlaylist;
     m_browsePages->setCurrentIndex(cards ? 1 : 0);
     m_browseBack->setVisible(playlists && m_browsePlaylist);
+    m_browseSequential->setVisible(playlists && m_browsePlaylist);
+    m_browseShuffle->setVisible(playlists && m_browsePlaylist);
     m_browseFilter->setPlaceholderText(cards ? "筛选歌单名称" : "筛选歌曲名称");
     m_browseHeading->setText(cards ? "我的歌单" : (m_browsePlaylist ? title : "全部歌曲"));
+    m_browseHeading->setToolTip(m_browsePlaylist ? title : QString());
     if (cards) {
         m_browsePlaylistCards->clear();
         for (const auto &playlist : allPlaylists) {
             if (!playlist.value("name").toString().contains(filter, Qt::CaseInsensitive))
                 continue;
             const auto id = playlist.value("id").toLongLong();
-            qint64 duration = 0;
-            for (const auto &track : m_library->tracks(id))
-                duration += track.value("duration").toLongLong();
             auto item = new QListWidgetItem(playlist.value("name").toString(), m_browsePlaylistCards);
             item->setData(Qt::UserRole, id);
             item->setData(Qt::UserRole + 1, playlist.value("count"));
-            item->setData(Qt::UserRole + 2, duration);
+            item->setData(Qt::UserRole + 2, playlist.value("duration"));
             item->setToolTip(playlist.value("name").toString() + " · 单击查看歌曲，拖入右侧加入队列");
             item->setData(Qt::AccessibleTextRole, playlist.value("name").toString() + "歌单");
         }
@@ -563,14 +461,17 @@ void MainWindow::refreshPlaybackBrowser() {
         return;
     }
     m_browseTracks->clear();
+    const auto songs = m_library->trackSummaries(m_browsePlaylist);
+    m_browseSequential->setEnabled(!songs.isEmpty());
+    m_browseShuffle->setEnabled(!songs.isEmpty());
     qint64 duration = 0;
-    for (const auto &track : m_library->tracks(m_browsePlaylist)) {
+    for (const auto &track : songs) {
         if (!track.value("title").toString().contains(filter, Qt::CaseInsensitive))
             continue;
         const auto id = track.value("id").toLongLong();
         auto item = new QTreeWidgetItem(
             m_browseTracks,
-            {track.value("title").toString() + (track.value("storage").toString() == "url" ? "  [URL]" : ""),
+            {trackTitle(track),
              {},
              {},
              displayTime(track.value("duration").toLongLong()),
@@ -581,7 +482,7 @@ void MainWindow::refreshPlaybackBrowser() {
             item->setSelected(true);
         if (id == m_player.currentId())
             item->setForeground(0, UiTheme::forWidget(this).color(QPalette::Accent));
-        auto add = playButton("→", QString("enqueueTrack_%1").arg(id));
+        auto add = action("→", QString("enqueueTrack_%1").arg(id));
         add->setToolTip("加入播放队列");
         add->setStyleSheet("padding:2px 5px;border:0;background:transparent;");
         m_browseTracks->setItemWidget(item, 4, add);
@@ -591,6 +492,16 @@ void MainWindow::refreshPlaybackBrowser() {
     m_browseSummary->setText(QString("%1 首 · %2 · 双击播放，或拖入右侧队列")
                                  .arg(m_browseTracks->topLevelItemCount())
                                  .arg(displayTime(duration)));
+}
+
+void MainWindow::queuePlaylist(qint64 playlist, bool shuffled) {
+    QList<qint64> ids;
+    for (const auto &song : m_library->trackSummaries(playlist)) ids << song.value("id").toLongLong();
+    if (!playlist || ids.isEmpty()) { notify("这个歌单还没有歌曲"); return; }
+    if (shuffled)
+        for (int i = ids.size() - 1; i > 0; --i) ids.swapItemsAt(i, QRandomGenerator::global()->bounded(i + 1));
+    m_player.enqueue(ids);
+    notify(QString("已将 %1 首歌曲%2加入播放队列").arg(ids.size()).arg(shuffled ? "打乱后" : "按顺序"));
 }
 
 void MainWindow::refreshPlaybackQueue() {
@@ -606,7 +517,7 @@ void MainWindow::refreshPlaybackQueue() {
         const auto track = m_library->track(entry.track);
         const bool current = entry.key == m_player.currentEntry();
         const QString title =
-            track.value("title").toString() + (track.value("storage").toString() == "url" ? "  [URL]" : "");
+            trackTitle(track);
         auto item = new QTreeWidgetItem(m_playbackQueue, {title});
         item->setData(0, Qt::UserRole, entry.track);
         item->setData(0, Qt::UserRole + 1, entry.key);
@@ -627,7 +538,7 @@ void MainWindow::refreshPlaybackQueue() {
             stack->setSpacing(1);
             for (int j = 0; j < 2; ++j) {
                 const int index = pair * 2 + j;
-                auto button = playButton(captions[index], names[index] + "_" + QString::number(entry.key));
+                auto button = action(captions[index], names[index] + "_" + QString::number(entry.key));
                 button->setFixedSize(23, 21);
                 if (index < 2) {
                     button->setIcon(queueActionIcon(index, devicePixelRatioF(),
@@ -644,13 +555,13 @@ void MainWindow::refreshPlaybackQueue() {
             row->addLayout(stack);
         }
         row->addWidget(new PlayingNote(&m_player, entry.key));
-        auto name = playLabel(title, current ? "currentQueueSong" : "queueSong");
+        auto name = label(title, current ? "currentQueueSong" : "queueSong");
         name->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
         name->setMinimumWidth(0);
         name->setAttribute(Qt::WA_TransparentForMouseEvents);
 
         row->addWidget(name, 1);
-        auto remove = playButton("", QString("dequeueEntry_%1").arg(entry.key));
+        auto remove = action("", QString("dequeueEntry_%1").arg(entry.key));
         remove->setIcon(
             queueActionIcon(2, devicePixelRatioF(), UiTheme::forWidget(this).color(QPalette::ButtonText)));
         remove->setIconSize(QSize(18, 18));

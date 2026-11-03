@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-02",
+  "fixture_payload": true,
+  "real_install_registration_modified": false,
+  "results": [
+    {
+      "edition": "screen",
+      "production_compile": true,
+      "fresh": true,
+      "discovery": true,
+      "explicit_choice_required": true,
+      "upgrade": true,
+      "library_preserved": true,
+      "settings_preserved": true,
+      "separate_identity": true,
+      "separate_upgrade": true,
+      "directory_collision_rejected": true,
+      "cross_edition_rejected": true,
+      "uninstall_preserves_data": true,
+      "wizard_control_bounds": true
+    },
+    {
+      "edition": "lite",
+      "production_compile": true,
+      "fresh": true,
+      "discovery": true,
+      "explicit_choice_required": true,
+      "upgrade": true,
+      "library_preserved": true,
+      "settings_preserved": true,
+      "separate_identity": true,
+      "separate_upgrade": true,
+      "directory_collision_rejected": true,
+      "cross_edition_rejected": true,
+      "uninstall_preserves_data": true,
+      "wizard_control_bounds": true
+    }
+  ],
+  "interactive_screenshot_verified": false,
+  "interactive_screenshot_note": "Computer Use window approval timed out; native wizard control bounds verified through fixture plans."
+}

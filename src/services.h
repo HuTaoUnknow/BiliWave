@@ -16,6 +16,8 @@ class ImportService : public QObject {
     ImportService(Library *library, QSettings *settings, QObject *parent = nullptr);
     ~ImportService() override;
     void enqueue(const QString &input, bool staged = false);
+    void enqueueLocalFiles(const QStringList &paths);
+    static bool acceptsLocalFile(const QString &path);
     void cancel();
     void cancelTask(const QString &id);
     void retryFailed();
@@ -26,14 +28,18 @@ class ImportService : public QObject {
     void status(const QString &id, const QString &title, const QString &state);
     void imported(qint64 id);
     void completed(const QString &taskId, qint64 trackId);
+    void localImportNotice(const QString &message);
 
   private:
     struct Task {
         QString id, input;
         bool staged = false;
+        QString playlistName;
+        bool importLyrics = true;
     };
     enum Stage { Metadata, Download, Probe, Remux };
     void startNext();
+    void enqueueTask(const Task &task);
     void run(const QString &program, const QStringList &args, Stage stage, int timeout = 120000);
     void finished(int code, QProcess::ExitStatus exit);
     void fail(const QString &message);

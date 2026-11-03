@@ -946,7 +946,7 @@ class RedesignTests : public QObject {
         screenshots.mkpath(".");
         QVERIFY(window.grab().save(screenshots.filePath("duplicate-queue-controls.png")));
         QVERIFY(drag.save(screenshots.filePath("music-drag-icon.png")));
-        player->setMode(Player::ListLoop);
+        player->setMode(Player::Sequential);
         player->setQueue({id, id}, id, false);
         const auto endEntries = player->entries();
         QTRY_VERIFY_WITH_TIMEOUT(player->media()->duration() > 11000, 15000);
@@ -1037,6 +1037,17 @@ class RedesignTests : public QObject {
         QCOMPARE(settings.value("lyrics/secondaryOpacity").toInt(), 30);
         QCOMPARE(settings.value("lyrics/horizontalOffset").toInt(), 140);
         window.player()->setQueue({second}, second, false);
+        // Stopped playback intentionally leaves the lyric overlay blank.
+        const auto stopped = window.overlay()->grab().toImage().convertToFormat(QImage::Format_ARGB32);
+        for (int y = 0; y < stopped.height(); ++y)
+            for (int x = 0; x < stopped.width(); ++x)
+                QCOMPARE(qAlpha(stopped.pixel(x, y)), 0);
+        window.player()->setVolume(0);
+        window.player()->media()->play();
+        QTRY_COMPARE_WITH_TIMEOUT(window.player()->media()->playbackState(), QMediaPlayer::PlayingState, 5000);
+        window.player()->media()->pause();
+        QTRY_COMPARE(window.player()->media()->playbackState(), QMediaPlayer::PausedState);
+        window.player()->media()->setPosition(0);
         auto image = window.overlay()->grab().toImage().convertToFormat(QImage::Format_ARGB32);
         int topAlpha = 0, lowerAlpha = 0, lowerLeft = image.width();
         for (int y = 0; y < image.height(); ++y)

@@ -4,6 +4,7 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -28,12 +29,16 @@ int main(int argc, char **argv) {
     parser.addOption({"search", "Open the search module with a keyword or Bilibili video", "query"});
     parser.addOption({"import", "Import a local file or Bilibili URL", "input"});
     parser.addOption({"startup", "Start in the system tray"});
+    parser.addPositionalArgument("files", "Import local audio files or folders", "[files…]");
     if (lyricFeaturesEnabled()) {
         parser.addOption({"fetch-lyrics", "Fetch lyrics for track ID", "id"});
     }
     parser.addOption(
         {"smoke", "Play first imported/existing track, check decoding and seeking, then exit", "report"});
     parser.process(app);
+    QStringList importFiles;
+    for (const auto &input : parser.positionalArguments())
+        importFiles << QFileInfo(input).absoluteFilePath();
     const bool fetchLyrics = lyricFeaturesEnabled() && parser.isSet("fetch-lyrics");
     const auto directory = parser.isSet("data") ? QDir(parser.value("data")).absolutePath()
                                                 : QDir(resourceRoot()).filePath("data");
@@ -43,7 +48,8 @@ int main(int argc, char **argv) {
         const auto claimed = instance.claim(directory,
                                             {{"startup", parser.isSet("startup")},
                                              {"search", parser.value("search")},
-                                             {"import", parser.value("import")}},
+                                             {"import", parser.value("import")},
+                                             {"files", QJsonArray::fromStringList(importFiles)}},
                                             &error);
         if (claimed == DesktopIntegration::ApplicationInstance::Notified)
             return 0;
@@ -78,6 +84,9 @@ int main(int argc, char **argv) {
                          const auto input = request["import"].toString();
                          if (!input.isEmpty())
                              window.imports()->enqueue(input);
+                         QStringList files;
+                         for (const auto &file : request["files"].toArray()) files << file.toString();
+                         if (!files.isEmpty()) window.imports()->enqueueLocalFiles(files);
                      });
     if (!parser.isSet("startup") || parser.isSet("capture") || parser.isSet("smoke") || !window.hideToTray())
         window.show();
@@ -165,5 +174,7 @@ int main(int argc, char **argv) {
     }
     if (parser.isSet("import"))
         QTimer::singleShot(0, &window, [&] { window.imports()->enqueue(parser.value("import")); });
+    if (!importFiles.isEmpty())
+        QTimer::singleShot(0, &window, [&] { window.imports()->enqueueLocalFiles(importFiles); });
     return app.exec();
 }

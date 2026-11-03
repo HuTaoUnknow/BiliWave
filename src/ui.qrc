@@ -3,6 +3,7 @@
     <file alias="icon.png">icons/biliwave.png</file>
     <file alias="icon.ico">icons/biliwave.ico</file>
     <file alias="check.svg">icons/check.svg</file>
+    <file alias="check-dark.svg">icons/check-dark.svg</file>
     <file alias="up-dark.svg">icons/up-dark.svg</file>
     <file alias="down-dark.svg">icons/down-dark.svg</file>
     <file alias="up-pink.svg">icons/up-pink.svg</file>

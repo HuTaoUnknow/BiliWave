@@ -15,4 +15,6 @@ class Lrc {
     static QString simplifiedChinese(const QString &text, bool enabled = true);
     static bool isBilingual(const QList<LyricLine> &lines);
     static QPair<QString, QString> displayAt(const QList<LyricLine> &lines, qint64 position, bool bilingual);
+    // One derived state per sorted event; build once, then index with indexAt().
+    static QList<QPair<QString, QString>> displayStates(const QList<LyricLine> &lines);
 };

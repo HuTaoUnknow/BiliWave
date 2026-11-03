@@ -12,7 +12,7 @@ class Player : public QObject {
         qint64 track;
     };
     enum QueueMove { Top, Bottom, Up, Down };
-    enum Mode { Sequential, ListLoop, Shuffle, SingleLoop };
+    enum Mode { Sequential = 0, Shuffle = 2, SingleLoop = 3 };
     Q_ENUM(Mode)
     explicit Player(Library *library, QObject *parent = nullptr);
     void acceptStream(quint64 token, const QUrl &url, const QString &error);
@@ -58,6 +58,7 @@ class Player : public QObject {
         return m_mode;
     }
     void setMode(Mode mode);
+    static Mode modeFromStored(int value);
     QList<qint64> upcoming() const;
     void enqueue(const QList<qint64> &ids);
     void removeQueued(qint64 id);
@@ -90,7 +91,7 @@ class Player : public QObject {
     QList<quint64> m_history, m_shuffleBag;
     qint64 m_current = 0;
     quint64 m_currentEntry = 0, m_nextEntry = 0;
-    Mode m_mode = ListLoop;
+    Mode m_mode = Sequential;
     quint64 m_streamToken = 0;
     bool m_loadingStream = false, m_streamPlay = false;
 };

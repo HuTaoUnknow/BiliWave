@@ -8,6 +8,63 @@
 class CoreTests : public QObject {
     Q_OBJECT
   private slots:
+    void mergedModesRetainPersistedNumbers() {
+        QCOMPARE(Player::modeFromStored(0), Player::Sequential);
+        QCOMPARE(Player::modeFromStored(1), Player::Sequential);
+        QCOMPARE(Player::modeFromStored(2), Player::Shuffle);
+        QCOMPARE(Player::modeFromStored(3), Player::SingleLoop);
+        QCOMPARE(Player::modeFromStored(-1), Player::Sequential);
+        QCOMPARE(Player::modeFromStored(99), Player::Sequential);
+    }
+    void playlistSummariesMatchVisibleMembers() {
+        QTemporaryDir dir(QDir::current().filePath("summary-test-XXXXXX"));
+        Library library(dir.path());
+        const auto a = library.addTrack({{"title", "A"}, {"artist", "Artist"}, {"path", "a.wav"}, {"duration", 1000}});
+        const auto b = library.addTrack({{"title", "B"}, {"path", "b.wav"}, {"duration", 2500}});
+        const auto staged = library.addTrack({{"title", "Staged"}, {"path", "c.wav"}, {"duration", 9000}, {"staged", 1}});
+        const auto first = library.createPlaylist("First"), second = library.createPlaylist("Empty");
+        QVERIFY(library.addToPlaylist(first, {a, b, staged}));
+        QVERIFY(library.setLyrics(a, "[00:01]門後", "Saved"));
+        auto playlists = library.playlists();
+        QCOMPARE(playlists.first().value("count").toInt(), 2);
+        QCOMPARE(playlists.first().value("duration").toLongLong(), 3500);
+        QCOMPARE(playlists.last().value("id").toLongLong(), second);
+        QCOMPARE(playlists.last().value("duration").toLongLong(), 0);
+        QCOMPARE(library.trackIds(), QSet<qint64>({a,b,staged}));
+        QCOMPARE(library.assignedTrackIds(), QSet<qint64>({a,b}));
+        auto summary = library.trackSummaries(first);
+        QCOMPARE(summary.size(), 2);
+        QCOMPARE(summary.first().value("id").toLongLong(), a);
+        QVERIFY(!summary.first().contains("lrc"));
+        QVERIFY(!summary.first().contains("raw_lrc"));
+        QCOMPARE(library.track(a).value("raw_lrc").toString(), QString("[00:01]門後"));
+        QCOMPARE(library.trackSummaries(0, "Artist").size(), 1);
+        QVERIFY(library.reorder(first, {b,a,staged}));
+        QCOMPARE(library.trackSummaries(first).first().value("id").toLongLong(), b);
+        QVERIFY(library.deleteTrack(b));
+        QCOMPARE(library.playlists().first().value("duration").toLongLong(), 1000);
+    }
+    void cachedBilingualTimelineSupportsClearAndSeeking() {
+        const QList<LyricLine> lines{{1000,"Hello"}, {1200,"你好"}, {2000,"Again\n再次"},
+                                     {3000,""}, {4000,"Привет"}, {4200,"世界"},
+                                     {5000,"光の中"}, {5000,"光之中"}};
+        const auto states = Lrc::displayStates(lines);
+        QCOMPARE(states.size(), lines.size());
+        QCOMPARE(states[0], qMakePair(QString("Hello"), QString()));
+        QCOMPARE(states[1], qMakePair(QString("Hello"), QString("你好")));
+        QCOMPARE(states[2], qMakePair(QString("Again"), QString("再次")));
+        QCOMPARE(states[3], qMakePair(QString(), QString()));
+        QCOMPARE(states[4], qMakePair(QString("Привет"), QString()));
+        QCOMPARE(states[5], qMakePair(QString("Привет"), QString("世界")));
+        QCOMPARE(states[6], qMakePair(QString("光の中"), QString("光之中")));
+        QCOMPARE(states[7], states[6]);
+        for (qint64 position : {0, 999, 1000, 1300, 2200, 3000, 4500, 5500, 1100}) {
+            const int index = Lrc::indexAt(lines, position);
+            const auto cached = index >= 0 ? states[index] : QPair<QString,QString>();
+            QCOMPARE(cached, Lrc::displayAt(lines, position, true));
+        }
+        QVERIFY(Lrc::displayStates({}).isEmpty());
+    }
     void audioOutputPolicyTracksHotplugAndSystemDefault() {
         const QByteArray speakers("speakers"), headset("headset"), hdmi("hdmi");
         QCOMPARE(Player::chooseAudioOutput({}, {speakers, headset}, speakers), speakers);
@@ -88,7 +145,7 @@ class CoreTests : public QObject {
         player.removeEntry(original[1].key);
         QCOMPARE(player.queue().count(ids[1]), 1);
         player.enqueue({ids[0]});
-        player.setMode(Player::ListLoop);
+        player.setMode(Player::Sequential);
         auto pending = player.pendingEntries();
         player.moveEntry(pending.first().key, Player::Top);
         QCOMPARE(player.pendingEntries().last().key, pending.first().key);
@@ -232,7 +289,7 @@ class CoreTests : public QObject {
         player.setMode(Player::SingleLoop);
         player.next(true);
         QCOMPARE(player.currentId(), current);
-        for (auto mode : {Player::Sequential, Player::ListLoop, Player::Shuffle}) {
+        for (auto mode : {Player::Sequential, Player::Shuffle}) {
             player.setMode(mode);
             player.setQueue(ids, ids.first(), false);
             for (int remaining = 2; remaining >= 0; --remaining) {
@@ -274,7 +331,7 @@ class CoreTests : public QObject {
         QCOMPARE(player.upcoming(), QList<qint64>({ids[3], ids[3], ids[0]}));
         player.setQueue(ids, ids[3], false);
         QCOMPARE(player.upcoming(), ids.mid(0, 3));
-        player.setMode(Player::ListLoop);
+        player.setMode(Player::Sequential);
         QCOMPARE(player.upcoming(), ids.mid(0, 3));
         player.setMode(Player::SingleLoop);
         QCOMPARE(player.upcoming(), QList<qint64>({ids[3]}));

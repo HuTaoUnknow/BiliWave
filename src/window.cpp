@@ -417,6 +417,7 @@ void LyricOverlay::mouseReleaseEvent(QMouseEvent *) {
 }
 
 MainWindow::~MainWindow() {
+    qApp->removeEventFilter(this);
     delete m_float;
     delete m_overlay;
 }
@@ -731,8 +732,11 @@ void MainWindow::updateCurrent() {
     const auto t = m_previewTrack && m_previewTrack == m_player.currentId()
                        ? m_library->workbenchTrack(m_previewTrack)
                        : m_library->track(m_player.currentId());
+    m_hasCurrentTrack = !t.isEmpty();
+    m_currentLyricOffset = t.value("lyric_offset").toInt();
     if (t.isEmpty()) {
         m_lines.clear();
+        m_lyricDisplayStates.clear();
         m_current->setText(tr("准备好，听一首喜欢的歌"));
         updateLyrics();
         return;
@@ -743,13 +747,17 @@ void MainWindow::updateCurrent() {
                                                            ? ""
                                                            : "  /  " + t.value("artist").toString()),
                         Qt::ElideRight, qMax(300, m_current->width())));
-    auto fingerprint = t.value("lrc").toString() + QString::number(t.value("lyric_offset").toInt());
+    const bool simplify = m_settings->value("lyrics/autoSimplifyChinese", true).toBool();
+    auto fingerprint = t.value("raw_lrc", t.value("lrc")).toString() + QString::number(simplify);
     if (fingerprint != m_lyricFingerprint) {
         m_lyricFingerprint = fingerprint;
         m_lines = Lrc::parse(t.value("raw_lrc", t.value("lrc")).toString());
         m_bilingualLyrics = Lrc::isBilingual(m_lines);
         if (!m_bilingualLyrics)
             m_lines = Lrc::parse(t.value("lrc").toString());
+        m_lyricDisplayStates = m_bilingualLyrics ? Lrc::displayStates(m_lines) : QList<QPair<QString, QString>>{};
+        for (auto &state : m_lyricDisplayStates)
+            state.second = Lrc::simplifiedChinese(state.second, simplify);
     }
     m_float->refresh();
     updateLyrics();
@@ -757,17 +765,16 @@ void MainWindow::updateCurrent() {
 void MainWindow::updateLyrics() {
     if (!lyricFeaturesEnabled())
         return;
-    const auto t = m_previewTrack && m_previewTrack == m_player.currentId()
-                       ? m_library->workbenchTrack(m_previewTrack)
-                       : m_library->track(m_player.currentId());
     QString current, next;
-    if (m_lines.isEmpty()) {
-        current = t.value("title").toString();
-        next = t.isEmpty() ? tr("拖入歌曲或歌单，开始聆听") : tr("尚无时间轴歌词 · 可匹配或导入 LRC");
-    } else {
-        const auto pair = Lrc::displayAt(m_lines, m_player.media()->position() + t.value("lyric_offset").toInt(), m_bilingualLyrics);
+    if (m_hasCurrentTrack && !m_lines.isEmpty() &&
+        m_player.media()->playbackState() != QMediaPlayer::StoppedState) {
+        const auto position = m_player.media()->position() + m_currentLyricOffset;
+        const int index = Lrc::indexAt(m_lines, position);
+        const auto pair = m_bilingualLyrics
+                              ? (index >= 0 ? m_lyricDisplayStates.value(index) : QPair<QString, QString>())
+                              : Lrc::displayAt(m_lines, position, false);
         current = pair.first;
-        next = m_bilingualLyrics ? Lrc::simplifiedChinese(pair.second, m_settings->value("lyrics/autoSimplifyChinese", true).toBool()) : pair.second;
+        next = pair.second;
     }
     m_currentLyric->setText(QFontMetrics(m_currentLyric->font())
                                 .elidedText(current, Qt::ElideRight, qMax(300, m_currentLyric->width())));
@@ -779,6 +786,8 @@ void MainWindow::settingsDialog() {
     navigate(4);
 }
 bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
+    if (handleInteractionEvent(watched, event))
+        return true;
     if (event->type() == QEvent::Wheel && watched->objectName() == "settingsAudioOutput") {
         event->ignore();
         return true;

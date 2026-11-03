@@ -30,7 +30,7 @@ QList<qint64> droppedTracks(const QMimeData *mime, Library *library);
 QString displayTime(qint64 ms);
 QPixmap musicDragPixmap(int count = 1, qreal devicePixelRatio = 1., const QColor &color = QColor("#287eff"));
 class PlaylistView;
-void configureRecordCards(PlaylistView *view, bool queueActions = false);
+void configureRecordCards(PlaylistView *view);
 class BusySpinner : public QWidget {
     Q_OBJECT
   public:
@@ -73,7 +73,6 @@ class PlaylistView : public QListWidget {
     using QListWidget::QListWidget;
   signals:
     void tracksDropped(qint64 playlist, const QList<qint64> &tracks);
-    void queueRequested(qint64 playlist, bool shuffled);
 
   protected:
     void startDrag(Qt::DropActions) override;
@@ -189,10 +188,14 @@ class MainWindow : public QMainWindow {
     QWidget *createLibraryPage();
     void refreshPlaybackBrowser();
     void refreshPlaybackQueue();
-    void queueLibraryPlaylist(qint64 playlist, bool shuffled);
+    void queuePlaylist(qint64 playlist, bool shuffled);
     QWidget *createLyricWorkbench();
     void beginSearch(int page = 1);
-    void downloadResults(bool all = false);
+    void chooseSearchResult(QTreeWidgetItem *item);
+    bool handleInteractionEvent(QObject *watched, QEvent *event);
+    void focusCollectionItem(int row, int action);
+    QPushButton *collectionButton(QListWidgetItem *item, int action) const;
+    void downloadResults();
     void collectUrls();
     void completeDownload(const QString &taskId, qint64 trackId);
     void updateDownloadTask(const QString &taskId, const QString &title, const QString &state,
@@ -210,8 +213,11 @@ class MainWindow : public QMainWindow {
     void matchLyrics(bool offline = false);
     void openLyricWizard(const QString &text = {}, int method = -1);
     void playLyricPreview();
+    void updateLyricPreviewControls();
+    void trimLyricTimeline(int direction, bool toEdge);
     void syncLyricPreview();
     void updateCurrent();
+    void highlightCurrentTrack();
     void updateLyrics();
     void chooseLyrics(qint64 id, const QList<QVariantMap> &items);
     void editLyricLine(int row, int operation);
@@ -240,6 +246,7 @@ class MainWindow : public QMainWindow {
     QPushButton *m_navSearch, *m_navLibrary, *m_navPlayback, *m_navWorkbench, *m_navSettings, *m_back,
         *m_addToPlaylist, *m_removeFromPlaylist;
     QPushButton *m_browseSongs, *m_browsePlaylists, *m_browseBack;
+    QPushButton *m_browseSequential, *m_browseShuffle;
     QStackedWidget *m_browsePages;
     TrackView *m_browseTracks;
     PlaylistView *m_browsePlaylistCards;
@@ -254,7 +261,6 @@ class MainWindow : public QMainWindow {
     BusySpinner *m_lyricSpinner;
     QPushButton *m_sortButton, *m_sortDirection;
     QCheckBox *m_unassignedTracks;
-    QPushButton *m_playlistSequential, *m_playlistShuffle;
     QPushButton *m_commitWithLyrics, *m_commitWithoutLyrics, *m_saveWorkbench;
     int m_sortMode = 0;
     bool m_sortAscending = true;
@@ -279,6 +285,8 @@ class MainWindow : public QMainWindow {
     int m_resultPage = 1;
     quint64 m_thumbnailGeneration = 0;
     bool m_resultHasNext = false, m_resultIsVideo = false;
+    bool m_focusResultsAfterSearch = false, m_searchChoiceActive = false;
+    int m_collectionAction = 0;
     QListWidget *m_jobs;
     QLineEdit *m_search, *m_input;
     QLabel *m_heading, *m_summary, *m_current, *m_currentLyric, *m_nextLyric, *m_status, *m_time;
@@ -288,6 +296,9 @@ class MainWindow : public QMainWindow {
     QSystemTrayIcon *m_tray = nullptr;
     bool m_quitting = false;
     QList<LyricLine> m_lines;
+    QList<QPair<QString, QString>> m_lyricDisplayStates;
+    int m_currentLyricOffset = 0;
+    bool m_hasCurrentTrack = false;
     bool m_bilingualLyrics = false;
     QMap<QString, QListWidgetItem *> m_jobItems;
     qint64 m_playlist = 0;

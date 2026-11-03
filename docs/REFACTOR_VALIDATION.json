@@ -1,0 +1,187 @@
+{
+  "date": "2026-11-01",
+  "validation_data": "isolated synthetic fixtures only",
+  "ctest": {
+    "build": {
+      "workbench": {
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      "online-lyrics": {
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      "ducking": {
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      "core": {
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      "integration": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      "redesign": {
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0
+      },
+      "lyric-workflow": {
+        "passed": 17,
+        "failed": 0,
+        "skipped": 4
+      }
+    },
+    "build-lite": {
+      "workbench": {
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      "online-lyrics": {
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      "ducking": {
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      "core": {
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      "lite": {
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "builds": {
+    "build": {
+      "bytes": 2746528,
+      "sha256": "eed5203c1f22e6c6d3f751d11add1bdbc94851c96e4b9f835d749e26a2898e8e"
+    },
+    "build-lite": {
+      "bytes": 2720225,
+      "sha256": "17dd4866596509ac1017223f0b4382ec9494430de77492edce9ec4784c79d942"
+    },
+    "build-debug": {
+      "bytes": 43252790,
+      "sha256": "200b16209f9c92ca99b219feb2e97123a32e914fa137c4936803bd19e88cd744"
+    }
+  },
+  "performance": {
+    "fixture": {
+      "songs": 600,
+      "playlists": 24,
+      "members_per_playlist": 80,
+      "playlist_refreshes": 15,
+      "lyric_events": 600,
+      "lyric_lookups": 3000
+    },
+    "checksum": 6912085249,
+    "runs": {
+      "before": [
+        {
+          "checksum": 6912085249,
+          "lyric_events": 600,
+          "lyric_lookups": 3000,
+          "lyric_ms": 1104.8738,
+          "members_per_playlist": 80,
+          "playlist_ms": 312.2104,
+          "playlist_refreshes": 15,
+          "playlists": 24,
+          "songs": 600
+        },
+        {
+          "checksum": 6912085249,
+          "lyric_events": 600,
+          "lyric_lookups": 3000,
+          "lyric_ms": 1150.3916,
+          "members_per_playlist": 80,
+          "playlist_ms": 305.6881,
+          "playlist_refreshes": 15,
+          "playlists": 24,
+          "songs": 600
+        },
+        {
+          "checksum": 6912085249,
+          "lyric_events": 600,
+          "lyric_lookups": 3000,
+          "lyric_ms": 1164.0905,
+          "members_per_playlist": 80,
+          "playlist_ms": 301.6771,
+          "playlist_refreshes": 15,
+          "playlists": 24,
+          "songs": 600
+        }
+      ],
+      "after": [
+        {
+          "checksum": 6912085249,
+          "lyric_events": 600,
+          "lyric_lookups": 3000,
+          "lyric_ms": 0.9642,
+          "members_per_playlist": 80,
+          "playlist_ms": 38.0556,
+          "playlist_refreshes": 15,
+          "playlists": 24,
+          "songs": 600
+        },
+        {
+          "checksum": 6912085249,
+          "lyric_events": 600,
+          "lyric_lookups": 3000,
+          "lyric_ms": 1.0859,
+          "members_per_playlist": 80,
+          "playlist_ms": 41.6012,
+          "playlist_refreshes": 15,
+          "playlists": 24,
+          "songs": 600
+        },
+        {
+          "checksum": 6912085249,
+          "lyric_events": 600,
+          "lyric_lookups": 3000,
+          "lyric_ms": 0.9357,
+          "members_per_playlist": 80,
+          "playlist_ms": 34.0613,
+          "playlist_refreshes": 15,
+          "playlists": 24,
+          "songs": 600
+        }
+      ]
+    },
+    "median": {
+      "before": {
+        "playlist_ms": 305.688,
+        "lyric_ms": 1150.392
+      },
+      "after": {
+        "playlist_ms": 38.056,
+        "lyric_ms": 0.964
+      }
+    },
+    "scope": "component microbenchmark; not end-to-end application or OCR speed"
+  },
+  "themes": [
+    "dark",
+    "chatgpt",
+    "grok",
+    "claude",
+    "pink"
+  ],
+  "schema_changed": false,
+  "published": false
+}

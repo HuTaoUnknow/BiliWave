@@ -174,10 +174,10 @@ bool Lrc::isBilingual(const QList<LyricLine> &lines) {
     }
     return nearbyPairs >= 2 && qMin(originals, translations) * 2 >= qMax(originals, translations);
 }
-QPair<QString, QString> Lrc::displayAt(const QList<LyricLine> &lines, qint64 position, bool bilingual) {
-    const int last = indexAt(lines, position);
-    if (!bilingual)
-        return {last >= 0 ? lines[last].text : QString(), last + 1 < lines.size() ? lines[last + 1].text : QString()};
+namespace {
+QList<QPair<QString, QString>> buildDisplayStates(const QList<LyricLine> &lines, int last) {
+    QList<QPair<QString, QString>> states;
+    states.reserve(last + 1);
     QString original, translated;
     static const QRegularExpression kana("[\\x{3040}-\\x{30ff}]");
     const bool japanese = std::any_of(lines.cbegin(), lines.cend(), [](const auto &line) { return line.text.contains(kana); });
@@ -192,7 +192,7 @@ QPair<QString, QString> Lrc::displayAt(const QList<LyricLine> &lines, qint64 pos
             else words.append(text.split('\n', Qt::SkipEmptyParts));
             ++end;
         }
-        auto pair = bilingualLines(words.join('\n'));
+        auto pair = Lrc::bilingualLines(words.join('\n'));
         // A Japanese line can consist entirely of Kanji. Old online/OCR LRC
         // keeps the original first within an equal-time original/Chinese pair.
         if (pair.first.isEmpty() && japanese && words.size() == 2 &&
@@ -202,9 +202,19 @@ QPair<QString, QString> Lrc::displayAt(const QList<LyricLine> &lines, qint64 pos
             if (chineseLyric(word)) translated = word;
             else original = word;
         }
-        i = end;
+        while (i < end) { states.append({original, translated}); ++i; }
     }
-    return {original, translated};
+    return states;
+}
+}
+QList<QPair<QString, QString>> Lrc::displayStates(const QList<LyricLine> &lines) {
+    return buildDisplayStates(lines, int(lines.size()) - 1);
+}
+QPair<QString, QString> Lrc::displayAt(const QList<LyricLine> &lines, qint64 position, bool bilingual) {
+    const int last = indexAt(lines, position);
+    if (!bilingual)
+        return {last >= 0 ? lines[last].text : QString(), last + 1 < lines.size() ? lines[last + 1].text : QString()};
+    return last >= 0 ? buildDisplayStates(lines, last).last() : QPair<QString, QString>();
 }
 QString Lrc::serialize(const QList<LyricLine> &lines) {
     QStringList output;

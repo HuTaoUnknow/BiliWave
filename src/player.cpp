@@ -13,8 +13,9 @@ Player::Player(Library *l, QObject *p) : QObject(p), m_library(l) {
     connect(&m_media, &QMediaPlayer::errorOccurred, this,
             [this](auto, const QString &s) { emit failure(s); });
     connect(l, &Library::changed, this, [this] {
+        const auto valid = m_library->trackIds();
         for (int i = m_queue.size() - 1; i >= 0; --i)
-            if (m_library->track(m_queue[i].track).isEmpty())
+            if (!valid.contains(m_queue[i].track))
                 m_queue.removeAt(i);
         if (m_currentEntry && entryIndex(m_currentEntry) < 0) {
             cancelStream();
@@ -99,7 +100,12 @@ void Player::prepareShuffle() {
     for (int i = m_shuffleBag.size() - 1; i > 0; --i)
         m_shuffleBag.swapItemsAt(i, QRandomGenerator::global()->bounded(i + 1));
 }
+Player::Mode Player::modeFromStored(int value) {
+    return value == Shuffle ? Shuffle : value == SingleLoop ? SingleLoop : Sequential;
+}
 void Player::setMode(Mode mode) {
+    mode = modeFromStored(mode);
+    if (m_mode == mode) return;
     m_mode = mode;
     m_shuffleBag.clear();
     prepareShuffle();
@@ -268,7 +274,7 @@ void Player::restoreQueue(const QList<qint64> &ids, int currentIndex) {
 }
 void Player::playPlaylist(qint64 id) {
     QList<qint64> ids;
-    for (const auto &t : m_library->tracks(id))
+    for (const auto &t : m_library->trackSummaries(id))
         ids << t.value("id").toLongLong();
     setQueue(ids);
 }
