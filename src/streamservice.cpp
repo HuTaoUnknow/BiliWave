@@ -1,5 +1,7 @@
 #include "streamservice.h"
 #include "services.h"
+#include <QDateTime>
+#include <QTimeZone>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -8,8 +10,59 @@
 #include <QRegularExpression>
 #include <QTcpSocket>
 #include <QTimer>
+#include <QUrlQuery>
 #include <QUuid>
 #include <memory>
+
+QDateTime ResolvedStreamCache::expiryFromUpstream(const QUrl &upstream, const QDateTime &fetchedAt) {
+    const auto fetched = fetchedAt.isValid() ? fetchedAt.toUTC() : QDateTime::currentDateTimeUtc();
+    QDateTime earliest;
+    for (const auto &item : QUrlQuery(upstream).queryItems()) {
+        const auto key = item.first.toLower();
+        if (key != QLatin1String("deadline") && key != QLatin1String("expires") &&
+            key != QLatin1String("expire") && key != QLatin1String("expiry"))
+            continue;
+        bool ok = false;
+        auto value = item.second.toLongLong(&ok);
+        if (!ok || value <= 0)
+            continue;
+        if (value > 100000000000LL)
+            value /= 1000;
+        if (value < 1000000000LL)
+            continue;
+        const auto candidate = QDateTime::fromSecsSinceEpoch(value, QTimeZone(QTimeZone::UTC));
+        if (!earliest.isValid() || candidate < earliest)
+            earliest = candidate;
+    }
+    // Signed CDN URLs that do not advertise a timestamp are reused briefly, then resolved again.
+    return earliest.isValid() ? earliest : fetched.addSecs(20 * 60);
+}
+bool ResolvedStreamCache::stillValid(const QDateTime &expiresAt, const QDateTime &now, int marginSeconds) {
+    if (!expiresAt.isValid() || !now.isValid())
+        return false;
+    return expiresAt.toUTC() > now.toUTC().addSecs(qMax(0, marginSeconds));
+}
+bool ResolvedStreamCache::upstreamStatusExpired(int httpStatus) {
+    return httpStatus == 401 || httpStatus == 403 || httpStatus == 410;
+}
+void ResolvedStreamCache::store(const QString &source, const Entry &entry) {
+    if (!source.isEmpty() && entry.upstream.isValid() && entry.expiresAt.isValid())
+        m_entries.insert(source, entry);
+}
+void ResolvedStreamCache::invalidate(const QString &source) {
+    m_entries.remove(source);
+}
+std::optional<ResolvedStreamCache::Entry> ResolvedStreamCache::takeIfValid(const QString &source,
+                                                                           const QDateTime &now) {
+    auto it = m_entries.find(source);
+    if (it == m_entries.end())
+        return std::nullopt;
+    if (!stillValid(it->expiresAt, now)) {
+        m_entries.erase(it);
+        return std::nullopt;
+    }
+    return *it;
+}
 
 StreamService::StreamService(QSettings *settings, QObject *parent) : QObject(parent), m_settings(settings) {
     m_server.listen(QHostAddress::LocalHost, 0);
@@ -52,6 +105,46 @@ void StreamService::cancel() {
         m_process = nullptr;
     }
 }
+void StreamService::rememberResolved(const QString &source, const QUrl &upstream,
+                                     const QMap<QByteArray, QByteArray> &headers, const QDateTime &expiresAt) {
+    ResolvedStreamCache::Entry entry;
+    entry.upstream = upstream;
+    entry.headers = headers;
+    entry.expiresAt = expiresAt.isValid() ? expiresAt.toUTC()
+                                          : ResolvedStreamCache::expiryFromUpstream(upstream, QDateTime::currentDateTimeUtc());
+    m_cache.store(source, entry);
+}
+void StreamService::adoptResolved(const QString &source, const QUrl &upstream, QMap<QByteArray, QByteArray> headers,
+                                  const QDateTime &expiresAt) {
+    if (!headers.contains("Referer"))
+        headers.insert("Referer", "https://www.bilibili.com/");
+    m_upstream = upstream;
+    m_headers = headers;
+    m_activeSource = source;
+    m_resolvedExpiry = expiresAt.toUTC();
+    m_upstreamRejected = false;
+    m_route = "/" + QUuid::createUuid().toString(QUuid::WithoutBraces) + "/audio.m4a";
+    ResolvedStreamCache::Entry entry;
+    entry.upstream = upstream;
+    entry.headers = m_headers;
+    entry.expiresAt = m_resolvedExpiry;
+    m_cache.store(source, entry);
+}
+QUrl StreamService::localPlaybackUrl() const {
+    if (!m_server.isListening() || m_route.isEmpty())
+        return {};
+    return QUrl(QStringLiteral("http://127.0.0.1:%1%2").arg(m_server.serverPort()).arg(m_route));
+}
+void StreamService::noteUpstreamStatus(int status, const QString &source, const QUrl &upstream) {
+    if (!ResolvedStreamCache::upstreamStatusExpired(status) || m_upstreamRejected)
+        return;
+    if (source != m_activeSource || upstream != m_upstream)
+        return;
+    m_upstreamRejected = true;
+    m_cache.invalidate(source);
+    m_resolvedExpiry = QDateTime::fromSecsSinceEpoch(0, QTimeZone(QTimeZone::UTC));
+    emit upstreamRejected();
+}
 void StreamService::resolve(quint64 token, const QString &source) {
     cancel();
     const auto generation = m_generation;
@@ -65,12 +158,18 @@ void StreamService::resolve(quint64 token, const QString &source) {
         emit ready(token, {}, "无法启动本机音频转发");
         return;
     }
+    if (const auto cached = m_cache.takeIfValid(source, QDateTime::currentDateTimeUtc())) {
+        adoptResolved(source, cached->upstream, cached->headers, cached->expiresAt);
+        emit ready(token, localPlaybackUrl(), {});
+        emit message("在线音轨已就绪");
+        return;
+    }
     auto process = new QProcess(this);
     m_process = process;
     auto timer = new QTimer(process);
     timer->setSingleShot(true);
     connect(timer, &QTimer::timeout, process, &QProcess::kill);
-    connect(process, &QProcess::finished, this, [this, process, generation, token](int code) {
+    connect(process, &QProcess::finished, this, [this, process, generation, token, source](int code) {
         process->deleteLater();
         if (generation != m_generation)
             return;
@@ -81,22 +180,21 @@ void StreamService::resolve(quint64 token, const QString &source) {
             emit ready(token, {}, "无法获取在线音轨，请检查网络、登录权限或重试");
             return;
         }
-        m_upstream = QUrl(format.value("url").toString());
-        if (m_upstream.scheme() != "https" && m_upstream.scheme() != "http") {
+        const QUrl upstream(format.value("url").toString());
+        if (upstream.scheme() != "https" && upstream.scheme() != "http") {
             emit ready(token, {}, "音轨地址协议不支持");
             return;
         }
-        m_headers.clear();
-        auto headers = metadata.value("http_headers").toObject();
+        QMap<QByteArray, QByteArray> headers;
+        auto headerObject = metadata.value("http_headers").toObject();
         const auto custom = format.value("http_headers").toObject();
         for (auto it = custom.begin(); it != custom.end(); ++it)
-            headers[it.key()] = it.value();
-        for (auto it = headers.begin(); it != headers.end(); ++it)
-            m_headers[it.key().toUtf8()] = it.value().toString().toUtf8();
-        if (!m_headers.contains("Referer"))
-            m_headers["Referer"] = "https://www.bilibili.com/";
-        m_route = "/" + QUuid::createUuid().toString(QUuid::WithoutBraces) + "/audio.m4a";
-        emit ready(token, QUrl(QString("http://127.0.0.1:%1%2").arg(m_server.serverPort()).arg(m_route)), {});
+            headerObject[it.key()] = it.value();
+        for (auto it = headerObject.begin(); it != headerObject.end(); ++it)
+            headers.insert(it.key().toUtf8(), it.value().toString().toUtf8());
+        const auto fetchedAt = QDateTime::currentDateTimeUtc();
+        adoptResolved(source, upstream, headers, ResolvedStreamCache::expiryFromUpstream(upstream, fetchedAt));
+        emit ready(token, localPlaybackUrl(), {});
         emit message("在线音轨已就绪 · " + format.value("acodec").toString());
     });
     connect(process, &QProcess::errorOccurred, this, [this, process, token, generation](auto error) {
@@ -150,6 +248,8 @@ void StreamService::acceptConnection() {
                 socket->disconnectFromHost();
                 return;
             }
+            const QString proxiedSource = m_activeSource;
+            const QUrl proxiedUpstream = m_upstream;
             QNetworkRequest request(m_upstream);
             for (auto it = m_headers.begin(); it != m_headers.end(); ++it)
                 request.setRawHeader(it.key(), it.value());
@@ -163,11 +263,12 @@ void StreamService::acceptConnection() {
             auto reply = first[0] == "HEAD" ? m_network.head(request) : m_network.get(request);
             reply->setReadBufferSize(262144);
             auto sent = std::make_shared<bool>(false);
-            auto pump = [socket, reply, sent] {
+            auto pump = [this, socket, reply, sent, proxiedSource, proxiedUpstream] {
                 if (socket->state() != QAbstractSocket::ConnectedState)
                     return;
                 if (!*sent && reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).isValid()) {
                     const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                    noteUpstreamStatus(status, proxiedSource, proxiedUpstream);
                     QByteArray headers =
                         "HTTP/1.1 " + QByteArray::number(status) + " OK\r\nConnection: close\r\n";
                     for (const auto &name : {QByteArray("Content-Type"), QByteArray("Content-Length"),

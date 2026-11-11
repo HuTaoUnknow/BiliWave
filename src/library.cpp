@@ -2,13 +2,17 @@
 #include "lrc.h"
 #include <QDir>
 #include <QFileInfo>
+#include <QFutureWatcher>
+#include <QPointer>
 #include <QRegularExpression>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QSqlRecord>
+#include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QUuid>
+#include <QtConcurrent>
 
 static QVariantMap row(QSqlQuery &q) {
     QVariantMap result;
@@ -65,15 +69,66 @@ Library::Library(const QString &directory, QObject *parent) : QObject(parent), m
         m_db.close();
         return;
     }
+    // Defer until the event loop so opening the library does not stat every file,
+    // and so listeners can connect to fileSizesUpdated() before the scan finishes.
+    QTimer::singleShot(0, this, [this] { startFileSizeScan(); });
+}
+void Library::startFileSizeScan() {
+    if (!m_db.isOpen())
+        return;
     QSqlQuery sizes(m_db);
-    sizes.exec("SELECT id,path FROM tracks WHERE storage='local' AND filesize=0");
-    while (sizes.next()) {
-        QSqlQuery update(m_db);
-        update.prepare("UPDATE tracks SET filesize=? WHERE id=?");
-        update.addBindValue(QFileInfo(sizes.value(1).toString()).size());
-        update.addBindValue(sizes.value(0));
-        update.exec();
+    if (!sizes.exec("SELECT id,path FROM tracks WHERE storage='local' AND filesize=0"))
+        return;
+    QList<QPair<qint64, QString>> pending;
+    while (sizes.next())
+        pending.append({sizes.value(0).toLongLong(), sizes.value(1).toString()});
+    if (pending.isEmpty())
+        return;
+    using Measured = QList<QPair<qint64, qint64>>;
+    auto *watcher = new QFutureWatcher<Measured>(this);
+    QPointer<Library> self(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [self, watcher] {
+        const Measured measured = watcher->result();
+        watcher->deleteLater();
+        if (self)
+            self->applyMeasuredFileSizes(measured);
+    });
+    // The worker only reads copied paths. It does not touch QObject or this connection.
+    watcher->setFuture(QtConcurrent::run([pending] {
+        Measured measured;
+        measured.reserve(pending.size());
+        for (const auto &item : pending)
+            measured.append({item.first, QFileInfo(item.second).size()});
+        return measured;
+    }));
+}
+void Library::applyMeasuredFileSizes(const QList<QPair<qint64, qint64>> &measured) {
+    if (!m_db.isOpen())
+        return;
+    QList<QPair<qint64, qint64>> present;
+    for (const auto &item : measured)
+        if (item.second > 0)
+            present.append(item);
+    if (present.isEmpty() || !m_db.transaction())
+        return;
+    QSqlQuery update(m_db);
+    if (!update.prepare("UPDATE tracks SET filesize=? WHERE id=? AND filesize=0")) {
+        m_db.rollback();
+        return;
     }
+    for (const auto &item : present) {
+        update.bindValue(0, item.second);
+        update.bindValue(1, item.first);
+        if (!update.exec()) {
+            m_db.rollback();
+            return;
+        }
+    }
+    if (!m_db.commit()) {
+        m_db.rollback();
+        return;
+    }
+    emit fileSizesUpdated();
 }
 Library::~Library() {
     m_db.close();
@@ -155,6 +210,36 @@ Track Library::track(qint64 id) const {
     q.prepare("SELECT * FROM tracks WHERE id=?");
     q.addBindValue(id);
     return q.exec() && q.next() ? lyricView(row(q)) : Track{};
+}
+Track Library::trackHeader(qint64 id) const {
+    QSqlQuery q(m_db);
+    q.prepare("SELECT id,title,artist,path,source,storage,codec,duration,filesize,staged FROM tracks WHERE id=?");
+    q.addBindValue(id);
+    return q.exec() && q.next() ? row(q) : Track{};
+}
+QHash<qint64, Track> Library::trackHeaders(const QList<qint64> &ids) const {
+    QHash<qint64, Track> headers;
+    // Stay under SQLite's older default variable limit.
+    constexpr int chunkSize = 200;
+    for (int offset = 0; offset < ids.size(); offset += chunkSize) {
+        const auto slice = ids.mid(offset, chunkSize);
+        QStringList marks;
+        marks.reserve(slice.size());
+        for (int i = 0; i < slice.size(); ++i)
+            marks << "?";
+        QSqlQuery q(m_db);
+        q.prepare("SELECT id,title,artist,path,source,storage,codec,duration,filesize,staged FROM tracks WHERE id IN (" +
+                  marks.join(',') + ")");
+        for (auto id : slice)
+            q.addBindValue(id);
+        if (!q.exec())
+            continue;
+        while (q.next()) {
+            auto track = row(q);
+            headers.insert(track.value("id").toLongLong(), track);
+        }
+    }
+    return headers;
 }
 QList<Track> Library::tracks(qint64 playlist, const QString &search) const {
     return queryTracks(playlist, search, true);

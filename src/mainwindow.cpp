@@ -240,6 +240,10 @@ MainWindow::MainWindow(Library *l, QSettings *s, QWidget *p)
     }
     connect(&m_player, &Player::streamRequested, &m_stream, &StreamService::resolve);
     connect(&m_stream, &StreamService::ready, &m_player, &Player::acceptStream);
+    connect(&m_stream, &StreamService::ready, this, [this](quint64 token, const QUrl &, const QString &error) {
+        m_player.noteStreamExpiry(token, error.isEmpty() ? m_stream.resolvedExpiry() : QDateTime());
+    });
+    connect(&m_stream, &StreamService::upstreamRejected, &m_player, &Player::expireResolvedStream);
     connect(&m_stream, &StreamService::message, this, &MainWindow::notify);
     connect(&m_player, &Player::failure, this, &MainWindow::notify);
     connect(m_toggle, &QPushButton::clicked, &m_player, &Player::toggle);
@@ -293,6 +297,7 @@ MainWindow::MainWindow(Library *l, QSettings *s, QWidget *p)
             m_settings->value("lyrics/autoFetch", true).toBool())
             m_lyrics.fetch(m_player.currentId());
     });
+    connect(l, &Library::fileSizesUpdated, this, [this] { refresh(); });
     connect(l, &Library::changed, this, [this] {
         for (auto it = m_jobItems.begin(); it != m_jobItems.end();) {
             const auto id = it.value()->data(Qt::UserRole).toLongLong();

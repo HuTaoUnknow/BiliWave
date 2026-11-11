@@ -1,10 +1,14 @@
 #pragma once
+#include <QHash>
 #include <QObject>
+#include <QPair>
 #include <QSqlDatabase>
 #include <QVariantMap>
 #include <QSet>
 
 using Track = QVariantMap;
+// SQLite is used only on this object's thread. Missing file sizes are measured on a
+// worker and written back here; fileSizesUpdated() is emitted after that write.
 class Library : public QObject {
     Q_OBJECT
   public:
@@ -22,6 +26,9 @@ class Library : public QObject {
     bool commitTrack(qint64 id);
     QList<Track> stagedTracks() const;
     Track track(qint64 id) const;
+    // Identity, path and labels only. Does not read or convert stored lyrics.
+    Track trackHeader(qint64 id) const;
+    QHash<qint64, Track> trackHeaders(const QList<qint64> &ids) const;
     QList<Track> tracks(qint64 playlist = 0, const QString &search = {}) const;
     QList<Track> trackSummaries(qint64 playlist = 0, const QString &search = {}) const;
     QSet<qint64> trackIds() const;
@@ -47,8 +54,11 @@ class Library : public QObject {
   signals:
     void changed();
     void workbenchChanged(qint64 id);
+    void fileSizesUpdated();
 
   private:
+    void startFileSizeScan();
+    void applyMeasuredFileSizes(const QList<QPair<qint64, qint64>> &measured);
     Track lyricView(Track track) const;
     QList<Track> queryTracks(qint64 playlist, const QString &search, bool lyrics) const;
     bool m_autoSimplifyLyrics = true;

@@ -1,9 +1,15 @@
 #include "library.h"
 #include "lrc.h"
 #include "player.h"
+#include <QDateTime>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QTemporaryDir>
+#include <QThreadPool>
 #include <QtTest>
 class CoreTests : public QObject {
     Q_OBJECT
@@ -385,6 +391,223 @@ class CoreTests : public QObject {
         player.setQueue({});
         QVERIFY(library.deletePlaylist(playlist));
         QCOMPARE(library.tracks().size(), 1);
+    }
+    void queueMetadataSkipsLyricConversion() {
+        QTemporaryDir dir(QDir::current().filePath("queue-lyrics-XXXXXX"));
+        Library library(dir.path());
+        QString lyric;
+        const QString line = "[00:01.00]我在門後 假裝你人還沒走 後來這個世界愛與夢想\n";
+        for (int i = 0; i < 400; ++i)
+            lyric += line;
+        QList<qint64> ids;
+        for (int i = 0; i < 80; ++i) {
+            QFile file(dir.filePath(QString::number(i) + ".wav"));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("RIFF");
+            file.close();
+            const auto id = library.addTrack({{"title", QString("歌曲%1").arg(i)}, {"path", file.fileName()}});
+            QVERIFY(library.setLyrics(id, lyric, "bench"));
+            ids << id;
+        }
+        const auto header = library.trackHeader(ids.first());
+        QVERIFY(!header.contains("lrc"));
+        QVERIFY(!header.contains("raw_lrc"));
+        QCOMPARE(header.value("title").toString(), QString("歌曲0"));
+        QCOMPARE(library.trackHeaders({}).size(), 0);
+        QCOMPARE(library.trackHeaders(ids).size(), ids.size());
+        QVERIFY(!library.trackHeaders(ids).value(ids.first()).contains("lrc"));
+
+        Player player(&library);
+        QElapsedTimer timer;
+        timer.start();
+        player.enqueue(ids);
+        const auto enqueueNs = timer.nsecsElapsed();
+        QCOMPARE(player.queue().size(), ids.size());
+        player.enqueue({ids.first(), -1});
+        QCOMPARE(player.queue().size(), ids.size() + 1);
+        timer.restart();
+        player.setQueue(ids, ids.first(), false);
+        const auto setQueueNs = timer.nsecsElapsed();
+        QCOMPARE(player.queue().size(), ids.size());
+        QCOMPARE(player.currentId(), ids.first());
+        timer.restart();
+        qint64 converted = 0;
+        for (auto id : ids)
+            converted += library.track(id).value("lrc").toString().size();
+        const auto convertNs = timer.nsecsElapsed();
+        QVERIFY(converted > lyric.size());
+        QVERIFY(library.track(ids.first()).value("lrc").toString().contains("我在门后"));
+        QVERIFY(library.track(ids.first()).value("raw_lrc").toString().contains("我在門後"));
+        qInfo().noquote() << QString("PERF enqueue %1 tracks %2 ms; setQueue %3 ms; read+convert lyrics %4 ms")
+                                 .arg(ids.size())
+                                 .arg(enqueueNs / 1e6, 0, 'f', 3)
+                                 .arg(setQueueNs / 1e6, 0, 'f', 3)
+                                 .arg(convertNs / 1e6, 0, 'f', 3);
+        QVERIFY2(enqueueNs * 3 < convertNs,
+                 qPrintable(QString("enqueue %1 ns, convert %2 ns").arg(enqueueNs).arg(convertNs)));
+    }
+    void fileSizeScanStaysOffTheOpeningThread() {
+        QTemporaryDir dir(QDir::current().filePath("filesize-scan-XXXXXX"));
+        QStringList paths;
+        QList<qint64> ids;
+        {
+            Library writer(dir.path());
+            QVERIFY2(writer.isOpen(), qPrintable(writer.error()));
+            for (int i = 0; i < 800; ++i) {
+                const auto path = dir.filePath(QString("song-%1.bin").arg(i));
+                QFile file(path);
+                QVERIFY(file.open(QIODevice::WriteOnly));
+                QCOMPARE(file.write(QByteArray(128, 'a')), 128);
+                file.close();
+                paths << path;
+                const auto id = writer.addTrack({{"title", QString::number(i)}, {"path", path}, {"filesize", 0}});
+                QVERIFY(id);
+                ids << id;
+            }
+            QCOMPARE(writer.trackHeader(ids.first()).value("filesize").toLongLong(), 0);
+        }
+        QElapsedTimer statTimer;
+        statTimer.start();
+        qint64 statBytes = 0;
+        for (const auto &path : paths)
+            statBytes += QFileInfo(path).size();
+        const auto statNs = statTimer.nsecsElapsed();
+        QCOMPARE(statBytes, paths.size() * 128LL);
+
+        QElapsedTimer openTimer;
+        openTimer.start();
+        Library library(dir.path());
+        const auto openNs = openTimer.nsecsElapsed();
+        QVERIFY2(library.isOpen(), qPrintable(library.error()));
+        QCOMPARE(library.trackHeader(ids.first()).value("filesize").toLongLong(), 0);
+        QCOMPARE(library.trackHeader(ids.last()).value("filesize").toLongLong(), 0);
+
+        QElapsedTimer fillTimer;
+        fillTimer.start();
+        qint64 fillNs = -1;
+        QObject::connect(&library, &Library::fileSizesUpdated, &library,
+                         [&] { fillNs = fillTimer.nsecsElapsed(); });
+        QTRY_VERIFY_WITH_TIMEOUT(fillNs >= 0, 10000);
+        QCOMPARE(library.trackHeader(ids.first()).value("filesize").toLongLong(), 128);
+        QCOMPARE(library.trackHeader(ids.last()).value("filesize").toLongLong(), 128);
+        qint64 stored = 0;
+        for (auto id : ids)
+            stored += library.trackHeader(id).value("filesize").toLongLong();
+        QCOMPARE(stored, statBytes);
+        const QString connection = "filesize-baseline";
+        qint64 oldNs = 0;
+        {
+            auto baseline = QSqlDatabase::addDatabase("QSQLITE", connection);
+            baseline.setDatabaseName(dir.filePath("baseline.sqlite"));
+            QVERIFY(baseline.open());
+            QSqlQuery setup(baseline);
+            QVERIFY(setup.exec("CREATE TABLE tracks (id INTEGER PRIMARY KEY, path TEXT, storage TEXT, filesize INTEGER)"));
+            QVERIFY(setup.exec("BEGIN"));
+            for (const auto &path : paths) {
+                setup.prepare("INSERT INTO tracks(path,storage,filesize) VALUES(?,'local',0)");
+                setup.addBindValue(path);
+                QVERIFY(setup.exec());
+            }
+            QVERIFY(setup.exec("COMMIT"));
+            QElapsedTimer oldTimer;
+            oldTimer.start();
+            QSqlQuery sizes(baseline);
+            QVERIFY(sizes.exec("SELECT id,path FROM tracks WHERE storage='local' AND filesize=0"));
+            while (sizes.next()) {
+                QSqlQuery update(baseline);
+                update.prepare("UPDATE tracks SET filesize=? WHERE id=?");
+                update.addBindValue(QFileInfo(sizes.value(1).toString()).size());
+                update.addBindValue(sizes.value(0));
+                QVERIFY(update.exec());
+            }
+            oldNs = oldTimer.nsecsElapsed();
+            baseline.close();
+        }
+        QSqlDatabase::removeDatabase(connection);
+        qInfo().noquote()
+            << QString("PERF file-size open %1 ms (still 0); background fill %2 ms; old ui-thread stat+update %3 ms; stat only %4 ms; files %5")
+                   .arg(openNs / 1e6, 0, 'f', 3)
+                   .arg(fillNs / 1e6, 0, 'f', 3)
+                   .arg(oldNs / 1e6, 0, 'f', 3)
+                   .arg(statNs / 1e6, 0, 'f', 3)
+                   .arg(paths.size());
+    }
+    void fileSizeScanIgnoresMissingFilesAndSurvivesDestruction() {
+        QTemporaryDir dir(QDir::current().filePath("filesize-missing-XXXXXX"));
+        {
+            Library library(dir.path());
+            const auto id = library.addTrack(
+                {{"title", "gone"}, {"path", dir.filePath("missing.wav")}, {"filesize", 0}});
+            QVERIFY(id);
+            QSignalSpy updated(&library, &Library::fileSizesUpdated);
+            QTest::qWait(250);
+            QCOMPARE(updated.count(), 0);
+            QCOMPARE(library.trackHeader(id).value("filesize").toLongLong(), 0);
+            QCoreApplication::processEvents();
+        }
+        QThreadPool::globalInstance()->waitForDone(2000);
+        QCoreApplication::processEvents();
+
+        const auto alive = dir.filePath("alive");
+        {
+            Library writer(alive);
+            for (int i = 0; i < 40; ++i) {
+                const auto path = dir.filePath(QString("alive/%1.bin").arg(i));
+                QFile file(path);
+                QVERIFY(file.open(QIODevice::WriteOnly));
+                file.write(QByteArray(32, 'b'));
+                file.close();
+                QVERIFY(writer.addTrack({{"title", QString::number(i)}, {"path", path}, {"filesize", 0}}));
+            }
+        }
+        {
+            Library transient(alive);
+            QCoreApplication::processEvents();
+        }
+        QThreadPool::globalInstance()->waitForDone(2000);
+        QCoreApplication::processEvents();
+    }
+    void urlResumeReResolvesOnlyAfterExpiry() {
+        QTemporaryDir dir(QDir::current().filePath("url-expiry-XXXXXX"));
+        Library library(dir.path());
+        const auto id = library.addUrl({{"title", "在线"}, {"url", "https://www.bilibili.com/video/BV1bK411W797"}});
+        QVERIFY(id);
+        const auto future = QDateTime::currentDateTimeUtc().addSecs(600);
+        const auto past = QDateTime::currentDateTimeUtc().addSecs(-5);
+        const auto requestsAfter = [&](const QDateTime &expiry, bool expire, int *count) {
+            Player player(&library);
+            QSignalSpy requests(&player, &Player::streamRequested);
+            player.setQueue({id}, 0, false);
+            if (requests.size() != 1)
+                return false;
+            const auto token = requests.first().at(0).toULongLong();
+            player.acceptStream(token, QUrl("http://127.0.0.1/audio.m4a"), {});
+            player.noteStreamExpiry(token + 1, past);
+            player.noteStreamExpiry(token, future);
+            if (expire)
+                player.expireResolvedStream();
+            else if (expiry.isValid())
+                player.noteStreamExpiry(token, expiry);
+            player.toggle();
+            *count = int(requests.size());
+            return true;
+        };
+        int count = 0;
+        QVERIFY(requestsAfter(future, false, &count));
+        QCOMPARE(count, 1);
+        QVERIFY(requestsAfter(past, false, &count));
+        QCOMPARE(count, 2);
+        QVERIFY(requestsAfter({}, true, &count));
+        QCOMPARE(count, 2);
+
+        Player player(&library);
+        QSignalSpy requests(&player, &Player::streamRequested);
+        player.setQueue({id}, 0, false);
+        player.setMode(Player::SingleLoop);
+        player.next(true);
+        QCOMPARE(requests.size(), 2);
+        QCOMPARE(player.currentId(), id);
+        QCOMPARE(player.queue().size(), 1);
     }
 };
 QTEST_MAIN(CoreTests)

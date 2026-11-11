@@ -513,8 +513,13 @@ void MainWindow::refreshPlaybackQueue() {
     for (const auto &entry : m_player.entries())
         if (entry.key == m_player.currentEntry())
             visible << entry;
+    QList<qint64> headerIds;
+    headerIds.reserve(visible.size());
+    for (const auto &entry : visible)
+        headerIds << entry.track;
+    const auto headers = m_library->trackHeaders(headerIds);
     for (const auto &entry : visible) {
-        const auto track = m_library->track(entry.track);
+        const auto track = headers.value(entry.track);
         const bool current = entry.key == m_player.currentEntry();
         const QString title =
             trackTitle(track);

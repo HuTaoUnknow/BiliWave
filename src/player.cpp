@@ -1,6 +1,8 @@
 #include "player.h"
+#include <QDateTime>
 #include <QFileInfo>
 #include <QRandomGenerator>
+#include <QTimeZone>
 Player::Player(Library *l, QObject *p) : QObject(p), m_library(l) {
     m_media.setAudioOutput(&m_audio);
     m_audio.setVolume(.75);
@@ -142,13 +144,16 @@ QList<qint64> Player::upcoming() const {
     return ids;
 }
 void Player::enqueue(const QList<qint64> &ids) {
-    for (auto id : ids)
-        if (!m_library->track(id).isEmpty()) {
-            const auto key = ++m_nextEntry;
-            m_queue << QueueEntry{key, id};
-            if (m_mode == Shuffle)
-                m_shuffleBag << key;
-        }
+    if (!ids.isEmpty()) {
+        const auto valid = m_library->trackIds();
+        for (auto id : ids)
+            if (valid.contains(id)) {
+                const auto key = ++m_nextEntry;
+                m_queue << QueueEntry{key, id};
+                if (m_mode == Shuffle)
+                    m_shuffleBag << key;
+            }
+    }
     if (!m_currentEntry && !m_queue.isEmpty())
         activate(m_queue.first().key);
     prepareShuffle();
@@ -242,9 +247,12 @@ void Player::setQueue(const QList<qint64> &ids, qint64 start, bool play, int sta
     m_queue.clear();
     m_currentEntry = 0;
     m_current = 0;
-    for (auto id : ids)
-        if (!m_library->track(id).isEmpty())
-            m_queue << QueueEntry{++m_nextEntry, id};
+    if (!ids.isEmpty()) {
+        const auto valid = m_library->trackIds();
+        for (auto id : ids)
+            if (valid.contains(id))
+                m_queue << QueueEntry{++m_nextEntry, id};
+    }
     m_history.clear();
     m_shuffleBag.clear();
     if (m_queue.isEmpty()) {
@@ -283,7 +291,7 @@ void Player::activate(quint64 key, bool play) {
     if (index < 0)
         return;
     const auto id = m_queue[index].track;
-    const auto t = m_library->track(id);
+    const auto t = m_library->trackHeader(id);
     const auto path = t.value("path").toString();
     const bool remote = t.value("storage").toString() == "url";
     if (!remote && !QFileInfo::exists(path)) {
@@ -292,6 +300,7 @@ void Player::activate(quint64 key, bool play) {
     }
     m_current = id;
     m_currentEntry = key;
+    m_streamExpiresAt = {};
     cancelStream();
     m_shuffleBag.removeAll(key);
     prepareShuffle();
@@ -319,6 +328,18 @@ void Player::cancelStream() {
     ++m_streamToken;
     m_loadingStream = false;
 }
+void Player::noteStreamExpiry(quint64 token, const QDateTime &expiresAt) {
+    if (token != m_streamToken)
+        return;
+    m_streamExpiresAt = expiresAt.isValid() ? expiresAt.toUTC() : QDateTime();
+}
+void Player::expireResolvedStream() {
+    m_streamExpiresAt = QDateTime::fromSecsSinceEpoch(0, QTimeZone(QTimeZone::UTC));
+}
+bool Player::resolvedStreamExpired() const {
+    // Keep the 30s margin aligned with ResolvedStreamCache::stillValid.
+    return m_streamExpiresAt.isValid() && QDateTime::currentDateTimeUtc().addSecs(30) >= m_streamExpiresAt;
+}
 void Player::acceptStream(quint64 token, const QUrl &url, const QString &error) {
     if (token != m_streamToken || !m_loadingStream)
         return;
@@ -339,8 +360,8 @@ void Player::toggle() {
     if (m_media.playbackState() == QMediaPlayer::PlayingState)
         m_media.pause();
     else if (m_current)
-        if (m_library->track(m_current).value("storage").toString() == "url" &&
-            m_media.error() != QMediaPlayer::NoError)
+        if (m_library->trackHeader(m_current).value("storage").toString() == "url" &&
+            (m_media.error() != QMediaPlayer::NoError || resolvedStreamExpired()))
             activate(m_currentEntry);
         else
             m_media.play();
@@ -351,7 +372,9 @@ void Player::next(bool automatic) {
     if (m_queue.isEmpty())
         return;
     if (automatic && m_mode == SingleLoop && m_currentEntry) {
-        if (m_library->track(m_current).value("storage").toString() == "url") {
+        if (m_library->trackHeader(m_current).value("storage").toString() == "url") {
+            // Resolve again so playback restarts, but StreamService reuses the CDN
+            // URL until it expires instead of launching yt-dlp every loop.
             activate(m_currentEntry);
             return;
         }

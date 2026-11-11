@@ -2,6 +2,7 @@
 #include "library.h"
 #include <QAudioOutput>
 #include <QAudioDevice>
+#include <QDateTime>
 #include <QMediaDevices>
 #include <QMediaPlayer>
 class Player : public QObject {
@@ -16,6 +17,10 @@ class Player : public QObject {
     Q_ENUM(Mode)
     explicit Player(Library *library, QObject *parent = nullptr);
     void acceptStream(quint64 token, const QUrl &url, const QString &error);
+    // Absolute UTC expiry of the CDN URL currently backing a resolved stream.
+    // An invalid time means the player has no reusable resolution.
+    void noteStreamExpiry(quint64 token, const QDateTime &expiresAt);
+    void expireResolvedStream();
     void cancelStream();
     QMediaPlayer *media() {
         return &m_media;
@@ -78,6 +83,7 @@ class Player : public QObject {
 
   private:
     void activate(quint64 key, bool play = true);
+    bool resolvedStreamExpired() const;
     void prepareShuffle();
     int entryIndex(quint64 key) const;
     QList<QueueEntry> orderedPending() const;
@@ -94,4 +100,5 @@ class Player : public QObject {
     Mode m_mode = Sequential;
     quint64 m_streamToken = 0;
     bool m_loadingStream = false, m_streamPlay = false;
+    QDateTime m_streamExpiresAt;
 };
