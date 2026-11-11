@@ -1,0 +1,13 @@
+# Git stores text as LF (.gitattributes). These settings stop editors on Windows
+# from saving sources such as tests/*.cpp with CRLF.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{png,ico,jpg,jpeg,gif,webp}]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
