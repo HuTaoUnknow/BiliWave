@@ -1,10 +1,10 @@
 name: CI
 
 on:
+  # Same-repo pull requests also push the head branch, so jobs skip that
+  # pull_request event and run once from the push. Fork PRs have no push.
   pull_request:
   push:
-    branches:
-      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,6 +22,7 @@ env:
 jobs:
   windows:
     name: Windows MinGW
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -96,6 +97,7 @@ jobs:
 
   linux:
     name: Linux GCC
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
