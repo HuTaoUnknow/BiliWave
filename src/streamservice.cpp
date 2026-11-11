@@ -1,5 +1,7 @@
 #include "streamservice.h"
+#include "bilihosts.h"
 #include "services.h"
+#include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -81,11 +83,14 @@ void StreamService::resolve(quint64 token, const QString &source) {
             emit ready(token, {}, "无法获取在线音轨，请检查网络、登录权限或重试");
             return;
         }
-        m_upstream = QUrl(format.value("url").toString());
-        if (m_upstream.scheme() != "https" && m_upstream.scheme() != "http") {
-            emit ready(token, {}, "音轨地址协议不支持");
+        const QUrl upstream(format.value("url").toString());
+        QString reason;
+        if (!BiliHosts::audioUrl(upstream, &reason)) {
+            qWarning().noquote() << "已拒绝在线音轨地址：" << reason;
+            emit ready(token, {}, reason.isEmpty() ? QString("音轨地址无效") : reason);
             return;
         }
+        m_upstream = upstream;
         m_headers.clear();
         auto headers = metadata.value("http_headers").toObject();
         const auto custom = format.value("http_headers").toObject();

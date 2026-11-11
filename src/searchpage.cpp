@@ -1,7 +1,9 @@
+#include "bilihosts.h"
 #include "lyricworkflow.h"
 #include "theme.h"
 #include "window.h"
 #include <QBoxLayout>
+#include <QDebug>
 #include <QHeaderView>
 #include <QApplication>
 #include <QDir>
@@ -177,7 +179,14 @@ void MainWindow::showSearchResults(const QList<QVariantMap> &items, int page, bo
         m_results->setFocus(Qt::OtherFocusReason);
     m_focusResultsAfterSearch = false;
     for (const auto &url : covers) {
-        QNetworkRequest request{QUrl(url)};
+        QString reason;
+        const auto allowed = BiliHosts::coverUrl(url, &reason);
+        if (allowed.isEmpty()) {
+            qWarning().noquote() << "已拒绝封面地址："
+                                 << (reason.isEmpty() ? QString("封面地址无效") : reason);
+            continue;
+        }
+        QNetworkRequest request{QUrl(allowed)};
         request.setTransferTimeout(15000);
         request.setRawHeader("Referer", "https://www.bilibili.com/");
         auto reply = m_thumbnails.get(request);

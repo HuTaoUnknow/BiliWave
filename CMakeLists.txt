@@ -18,7 +18,8 @@ target_compile_definitions(bili_core PUBLIC BILI_ENABLE_LYRICS=$<BOOL:${BILI_ENA
   BILI_ENABLE_RECOGNITION=$<BOOL:${BILI_ENABLE_RECOGNITION}>
   BILI_ENABLE_ALIGNMENT=$<BOOL:${BILI_ENABLE_ALIGNMENT}> BILI_VERSION="${PROJECT_VERSION}")
 add_library(bili_services STATIC
-  src/services.cpp src/onlinelyrics.cpp src/searchservice.cpp src/streamservice.cpp)
+  src/services.cpp src/onlinelyrics.cpp src/searchservice.cpp src/streamservice.cpp
+  src/bilihosts.cpp src/wbi.cpp)
 target_link_libraries(bili_services PUBLIC bili_core Qt6::Network)
 add_library(bili_ui OBJECT
   src/window.cpp src/interaction.cpp src/progressbar.cpp src/mainwindow.cpp
@@ -48,6 +49,10 @@ if(BUILD_TESTING)
   set_tests_properties(workbench_tests PROPERTIES TIMEOUT 60)
   add_executable(online_lyrics_tests tests/online_lyrics_tests.cpp)
   target_link_libraries(online_lyrics_tests PRIVATE bili_services Qt6::Test)
+  add_executable(security_tests tests/security_tests.cpp)
+  target_link_libraries(security_tests PRIVATE bili_services Qt6::Test)
+  add_test(NAME security_tests COMMAND security_tests -platform offscreen -o security-results.txt,txt)
+  set_tests_properties(security_tests PROPERTIES TIMEOUT 30)
   add_executable(live_lyrics_sources tests/live_lyrics_sources.cpp)
   target_link_libraries(live_lyrics_sources PRIVATE bili_services)
   add_test(NAME online_lyrics_tests COMMAND online_lyrics_tests -platform windows -o online-lyrics-results.txt,txt)

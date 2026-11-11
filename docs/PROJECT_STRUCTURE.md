@@ -40,6 +40,8 @@ src/
   autoducking.{h,cpp}     自动降低音量
   services.{h,cpp}        本地导入、下载、歌词服务、导出
   searchservice.*         哔哩哔哩搜索
+  wbi.*                   哔哩哔哩 WBI 签名与口令缓存
+  bilihosts.*             封面与音轨主机白名单
   streamservice.*         URL 音轨解析
   onlinelyrics.*          歌词源检索、排序、缓存、限流
   lyricworkflow.*         OCR 框选窗口、后台任务、结果队列

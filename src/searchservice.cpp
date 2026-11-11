@@ -1,5 +1,7 @@
 #include "searchservice.h"
+#include "bilihosts.h"
 #include <QDateTime>
+#include <QDebug>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -9,15 +11,34 @@
 #include <QUrlQuery>
 #include <QUuid>
 #include <cmath>
-static QString imageUrl(QString value) {
-    if (value.startsWith("//"))
-        value = "https:" + value;
-    if (value.startsWith("http:"))
-        value.replace(0, 5, "https:");
-    return value;
+
+namespace {
+constexpr auto kUserAgent =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36";
+
+QString acceptCover(const QString &raw) {
+    if (raw.trimmed().isEmpty())
+        return {};
+    QString reason;
+    const auto url = BiliHosts::coverUrl(raw, &reason);
+    if (!url.isEmpty())
+        return url;
+    qWarning().noquote() << "已拒绝封面地址：" << reason;
+    return {};
 }
+bool signatureRejected(const QJsonObject &root) {
+    const int code = root.value("code").toInt();
+    if (code == -403 || code == -352)
+        return true;
+    const auto data = root.value("data").toObject();
+    return data.contains("v_voucher") && !data.contains("result") && !data.contains("bvid") &&
+           !data.contains("pages");
+}
+} // namespace
+
 SearchService::SearchService(QSettings *s, QObject *p)
-    : QObject(p), m_settings(s), m_buvid(QUuid::createUuid().toString(QUuid::WithoutBraces) + "infoc") {}
+    : QObject(p), m_settings(s), m_wbi(&m_network),
+      m_buvid(QUuid::createUuid().toString(QUuid::WithoutBraces) + "infoc") {}
 SearchService::~SearchService() {
     ++m_token;
     if (m_active) {
@@ -25,6 +46,16 @@ SearchService::~SearchService() {
         m_active->abort();
         m_active = nullptr;
     }
+}
+void SearchService::setApiRootForTest(const QUrl &root) {
+    m_apiRoot = root;
+}
+QUrl SearchService::api(const QString &path) const {
+    QUrl url = m_apiRoot.isValid() ? m_apiRoot : QUrl(QString("https://api.bilibili.com"));
+    url.setPath(path);
+    url.setQuery(QString());
+    url.setFragment(QString());
+    return url;
 }
 SearchPage SearchService::parseSearch(const QJsonObject &data, int page) {
     SearchPage result;
@@ -42,7 +73,7 @@ SearchPage SearchService::parseSearch(const QJsonObject &data, int page) {
             {"url", "https://www.bilibili.com/video/" + bvid},
             {"title", QTextDocumentFragment::fromHtml(row.value("title").toString()).toPlainText()},
             {"duration", seconds * 1000},
-            {"thumbnail", imageUrl(row.value("pic").toString())},
+            {"thumbnail", acceptCover(row.value("pic").toString())},
             {"uploader", row.value("author").toString()},
             {"part", 0}};
     }
@@ -55,7 +86,7 @@ SearchPage SearchService::parseVideo(const QJsonObject &data) {
     SearchPage result;
     result.video = true;
     const auto bvid = data.value("bvid").toString(), title = data.value("title").toString(),
-               cover = imageUrl(data.value("pic").toString());
+               cover = acceptCover(data.value("pic").toString());
     const auto owner = data.value("owner").toObject().value("name").toString();
     const auto pages = data.value("pages").toArray();
     for (const auto &v : pages) {
@@ -63,12 +94,16 @@ SearchPage SearchService::parseVideo(const QJsonObject &data) {
         const int index = p.value("page").toInt();
         if (index < 1 || bvid.isEmpty())
             continue;
+        const auto frame = p.value("first_frame").toString();
+        auto thumbnail = acceptCover(frame);
+        if (thumbnail.isEmpty())
+            thumbnail = cover;
         result.items << QVariantMap{
             {"bvid", bvid},
             {"url", QString("https://www.bilibili.com/video/%1?p=%2").arg(bvid).arg(index)},
             {"title", pages.size() > 1 ? title + " / " + p.value("part").toString() : title},
             {"duration", qint64(p.value("duration").toDouble() * 1000)},
-            {"thumbnail", imageUrl(p.value("first_frame").toString(cover))},
+            {"thumbnail", thumbnail},
             {"uploader", owner},
             {"part", index}};
     }
@@ -99,12 +134,12 @@ void SearchService::search(const QString &input, int page) {
     emit busyChanged(true);
     auto match = QRegularExpression("BV[0-9A-Za-z]{10}").match(query);
     if (match.hasMatch()) {
-        QUrl url("https://api.bilibili.com/x/web-interface/view");
+        auto url = api("/x/web-interface/view");
         QUrlQuery params;
         params.addQueryItem("bvid", match.captured());
         url.setQuery(params);
         emit message(tr("正在获取视频及全部分 P…"));
-        get(url, true, 1, token);
+        request(url, true, 1, token);
         return;
     }
     const QUrl link(query);
@@ -114,11 +149,11 @@ void SearchService::search(const QString &input, int page) {
         return;
     }
     if (QRegularExpression("^av\\d+$", QRegularExpression::CaseInsensitiveOption).match(query).hasMatch()) {
-        QUrl url("https://api.bilibili.com/x/web-interface/view");
+        auto url = api("/x/web-interface/view");
         QUrlQuery params;
         params.addQueryItem("aid", query.mid(2));
         url.setQuery(params);
-        get(url, true, 1, token);
+        request(url, true, 1, token);
         return;
     }
     if (query.startsWith("http", Qt::CaseInsensitive)) {
@@ -126,7 +161,7 @@ void SearchService::search(const QString &input, int page) {
         emit message(tr("请输入哔哩哔哩视频链接或 BV 号"));
         return;
     }
-    QUrl url("https://api.bilibili.com/x/web-interface/search/type");
+    auto url = api("/x/web-interface/wbi/search/type");
     QUrlQuery params;
     params.addQueryItem("search_type", "video");
     params.addQueryItem("keyword", query);
@@ -135,15 +170,28 @@ void SearchService::search(const QString &input, int page) {
     params.addQueryItem("highlight", "0");
     url.setQuery(params);
     emit message(tr("正在搜索第 %1 页…").arg(page));
-    get(url, false, page, token);
+    request(url, false, page, token);
 }
-void SearchService::get(const QUrl &url, bool video, int page, quint64 token, bool shortLink) {
-    QNetworkRequest request(url);
-    request.setTransferTimeout(25000);
-    request.setRawHeader(
-        "User-Agent",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36");
-    request.setRawHeader("Referer", "https://www.bilibili.com/");
+void SearchService::request(const QUrl &url, bool video, int page, quint64 token, bool retried) {
+    m_wbi.withMixinKey([this, url, video, page, token, retried](const QString &mixin, const QString &error) {
+        if (token != m_token)
+            return;
+        if (mixin.isEmpty()) {
+            qWarning().noquote() << "无法获取哔哩哔哩签名：" << error;
+            emit busyChanged(false);
+            emit message(
+                tr("无法获取哔哩哔哩签名：%1").arg(error.isEmpty() ? tr("导航接口没有返回口令") : error));
+            return;
+        }
+        get(WbiSigner::signUrl(url, mixin, m_wbi.timestamp()), video, page, token, false, url, retried);
+    });
+}
+void SearchService::get(const QUrl &url, bool video, int page, quint64 token, bool shortLink,
+                        const QUrl &unsignedUrl, bool retried) {
+    QNetworkRequest networkRequest(url);
+    networkRequest.setTransferTimeout(25000);
+    networkRequest.setRawHeader("User-Agent", kUserAgent);
+    networkRequest.setRawHeader("Referer", "https://www.bilibili.com/");
     if (url.host() == "api.bilibili.com") {
         QStringList cookies;
         bool hasBuvid = false;
@@ -170,40 +218,55 @@ void SearchService::get(const QUrl &url, bool video, int page, quint64 token, bo
             }
         if (!hasBuvid)
             cookies << "buvid3=" + m_buvid;
-        request.setRawHeader("Cookie", cookies.join("; ").toUtf8());
+        networkRequest.setRawHeader("Cookie", cookies.join("; ").toUtf8());
     }
-    auto reply = m_network.get(request);
+    auto reply = m_network.get(networkRequest);
     m_active = reply;
-    connect(reply, &QNetworkReply::finished, this, [this, reply, video, page, token, shortLink] {
-        reply->deleteLater();
-        if (token != m_token)
-            return;
-        m_active = nullptr;
-        if (shortLink && reply->error() == QNetworkReply::NoError) {
-            const auto match = QRegularExpression("BV[0-9A-Za-z]{10}").match(reply->url().toString());
-            if (match.hasMatch()) {
-                search(match.captured());
-                return;
-            }
-        }
-        emit busyChanged(false);
-        if (reply->error() != QNetworkReply::NoError) {
-            emit message(tr("搜索失败：%1；可重试或在设置中配置本机 Cookie").arg(reply->errorString()));
-            return;
-        }
-        const auto root = QJsonDocument::fromJson(reply->readAll()).object();
-        if (!root.contains("code") || root.value("code").toInt() != 0) {
-            emit message(tr("搜索服务暂不可用：%1（%2）")
-                             .arg(root.value("message").toString(tr("响应不是有效数据")))
-                             .arg(root.value("code").toInt()));
-            return;
-        }
-        const auto result = video ? parseVideo(root.value("data").toObject())
-                                  : parseSearch(root.value("data").toObject(), page);
-        emit results(result.items, result.page, result.hasNext, result.video);
-        emit message(result.items.isEmpty() ? tr("没有找到结果")
-                                            : tr("已找到 %1 项%2")
-                                                  .arg(result.items.size())
-                                                  .arg(result.video ? tr("，分 P 可分别下载") : QString()));
-    });
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply, video, page, token, shortLink, unsignedUrl, retried] {
+                reply->deleteLater();
+                if (token != m_token)
+                    return;
+                m_active = nullptr;
+                if (shortLink && reply->error() == QNetworkReply::NoError) {
+                    const auto match = QRegularExpression("BV[0-9A-Za-z]{10}").match(reply->url().toString());
+                    if (match.hasMatch()) {
+                        search(match.captured());
+                        return;
+                    }
+                }
+                const auto root = QJsonDocument::fromJson(reply->readAll()).object();
+                if (reply->error() == QNetworkReply::NoError && !shortLink && !retried &&
+                    unsignedUrl.isValid() && signatureRejected(root)) {
+                    qWarning().noquote() << "哔哩哔哩接口拒绝了签名，正在刷新口令后重试";
+                    m_wbi.invalidate();
+                    request(unsignedUrl, video, page, token, true);
+                    return;
+                }
+                emit busyChanged(false);
+                if (reply->error() != QNetworkReply::NoError) {
+                    emit message(
+                        tr("搜索失败：%1；可重试或在设置中配置本机 Cookie").arg(reply->errorString()));
+                    return;
+                }
+                if (signatureRejected(root)) {
+                    qWarning().noquote() << "哔哩哔哩签名刷新后仍被拒绝";
+                    emit message(tr("搜索签名未通过，请稍后重试"));
+                    return;
+                }
+                if (!root.contains("code") || root.value("code").toInt() != 0) {
+                    emit message(tr("搜索服务暂不可用：%1（%2）")
+                                     .arg(root.value("message").toString(tr("响应不是有效数据")))
+                                     .arg(root.value("code").toInt()));
+                    return;
+                }
+                const auto result = video ? parseVideo(root.value("data").toObject())
+                                          : parseSearch(root.value("data").toObject(), page);
+                emit results(result.items, result.page, result.hasNext, result.video);
+                emit message(result.items.isEmpty()
+                                 ? tr("没有找到结果")
+                                 : tr("已找到 %1 项%2")
+                                       .arg(result.items.size())
+                                       .arg(result.video ? tr("，分 P 可分别下载") : QString()));
+            });
 }

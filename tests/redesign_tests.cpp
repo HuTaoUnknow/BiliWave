@@ -1748,7 +1748,7 @@ class RedesignTests : public QObject {
             {"result", QJsonArray{QJsonObject{{"bvid", "BV13x41117TL"},
                                               {"title", "<em class=\"keyword\">歌曲</em> &amp; 标题"},
                                               {"duration", "1:02:03"},
-                                              {"pic", "//cdn.example/cover.jpg"},
+                                              {"pic", "//i0.hdslb.com/bfs/archive/cover.jpg"},
                                               {"author", "演唱者"}}}}};
         auto page = SearchService::parseSearch(search, 2);
         QCOMPARE(page.page, 2);
@@ -1756,14 +1756,14 @@ class RedesignTests : public QObject {
         QCOMPARE(page.items.size(), 1);
         QCOMPARE(page.items[0].value("title").toString(), QString("歌曲 & 标题"));
         QCOMPARE(page.items[0].value("duration").toLongLong(), 3723000);
-        QVERIFY(page.items[0].value("thumbnail").toString().startsWith("https://"));
+        QVERIFY(page.items[0].value("thumbnail").toString().startsWith("https://i0.hdslb.com/"));
         QVERIFY(!SearchService::parseSearch(search, 3).hasNext);
         QJsonArray parts;
         for (int p = 1; p <= 3; ++p)
             parts << QJsonObject{{"page", p}, {"part", QString("歌曲 %1").arg(p)}, {"duration", p * 60}};
         QJsonObject video{{"bvid", "BV13x41117TL"},
                           {"title", "分 P 专辑"},
-                          {"pic", "https://cdn.example/cover.jpg"},
+                          {"pic", "https://i0.hdslb.com/bfs/archive/cover.jpg"},
                           {"pages", parts}};
         auto parsed = SearchService::parseVideo(video);
         QVERIFY(parsed.video);
