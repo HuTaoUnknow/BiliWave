@@ -1,5 +1,5 @@
 #include "lyricworkflow.h"
-#include "features.h"
+#include "bili_features.h"
 #include "lrc.h"
 #include "onlinelyrics.h"
 #include "services.h"

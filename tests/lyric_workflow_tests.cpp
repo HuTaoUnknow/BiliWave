@@ -1,6 +1,6 @@
 #include "lrc.h"
 #include "lyricworkflow.h"
-#include "features.h"
+#include "bili_features.h"
 #include "services.h"
 #include "theme.h"
 #include <QCheckBox>

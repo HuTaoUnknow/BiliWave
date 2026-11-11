@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Qt 6.11.1 matches CMakePresets.json (MinGW 13.1 on Windows). aqtinstall 3.3.0
+# on PyPI cannot read the Qt 6.11 repository layout; the pin is the revision
+# that includes that fix. cache: true stores the Qt prefix between runs.
+env:
+  AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7
+
+jobs:
+  windows:
+    name: Windows MinGW
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.11.1"
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          modules: qtmultimedia
+          tools: "tools_mingw1310,qt.tools.win64_mingw1310 tools_ninja,qt.tools.ninja"
+          cache: true
+          cache-key-prefix: biliwave-qt-6.11.1-mingw
+          aqtsource: ${{ env.AQT_SOURCE }}
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          $mingw = Join-Path $env:IQTA_TOOLS 'mingw1310_64\bin'
+          if (-not (Test-Path (Join-Path $mingw 'g++.exe'))) {
+            throw "MinGW g++ not found under $env:IQTA_TOOLS"
+          }
+          $env:Path = "$mingw;" + $env:Path
+          foreach ($dir in @(
+              (Join-Path $env:IQTA_TOOLS 'Ninja'),
+              (Join-Path $env:IQTA_TOOLS 'Ninja\bin'))) {
+            if (Test-Path (Join-Path $dir 'ninja.exe')) {
+              $env:Path = "$dir;" + $env:Path
+              break
+            }
+          }
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
+            throw 'ninja was not found'
+          }
+          cmake -S . -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
+            -DCMAKE_C_COMPILER="$(Join-Path $mingw 'gcc.exe')" `
+            -DCMAKE_CXX_COMPILER="$(Join-Path $mingw 'g++.exe')" `
+            -DBUILD_TESTING=ON `
+            -DBILI_ENABLE_LYRICS=ON `
+            -DBILI_ENABLE_RECOGNITION=ON `
+            -DBILI_ENABLE_ALIGNMENT=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cmake --build build --parallel
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Test
+        shell: pwsh
+        run: |
+          # Label "offline" on Windows: core_tests and online_lyrics_tests.
+          # ducking_tests needs a microphone here; Linux runs it because those cases skip.
+          # live_* are executables without add_test, and -E excludes them if that changes.
+          # GUI and ffmpeg tests stay on scripts/build.ps1.
+          ctest --test-dir build --output-on-failure --no-tests=error -L offline -E "^live"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-logs
+          path: build/*-results.txt
+          if-no-files-found: ignore
+
+  linux:
+    name: Linux GCC
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.11.1"
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          modules: qtmultimedia
+          cache: true
+          cache-key-prefix: biliwave-qt-6.11.1-gcc64
+          install-deps: true
+          aqtsource: ${{ env.AQT_SOURCE }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" \
+            -DBUILD_TESTING=ON \
+            -DBILI_ENABLE_LYRICS=ON \
+            -DBILI_ENABLE_RECOGNITION=ON \
+            -DBILI_ENABLE_ALIGNMENT=OFF
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: |
+          # Linux offline set adds ducking_tests. live_* are not CTest tests.
+          ctest --test-dir build --output-on-failure --no-tests=error -L offline -E "^live"
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-test-logs
+          path: build/*-results.txt
+          if-no-files-found: ignore

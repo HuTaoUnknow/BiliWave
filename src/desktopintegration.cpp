@@ -1,5 +1,5 @@
 #include "desktopintegration.h"
-#include "features.h"
+#include "bili_features.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>

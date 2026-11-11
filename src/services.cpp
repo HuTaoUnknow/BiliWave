@@ -1,5 +1,5 @@
 #include "services.h"
-#include "features.h"
+#include "bili_features.h"
 #include "lrc.h"
 #include <QCoreApplication>
 #include <QDir>

@@ -1,6 +1,6 @@
 #pragma once
 #include "autoducking.h"
-#include "features.h"
+#include "bili_features.h"
 #include "lrc.h"
 #include "player.h"
 #include "searchservice.h"
